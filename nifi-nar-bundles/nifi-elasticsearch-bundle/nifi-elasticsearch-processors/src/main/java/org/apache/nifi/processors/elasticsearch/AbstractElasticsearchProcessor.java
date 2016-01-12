@@ -16,7 +16,6 @@
  */
 package org.apache.nifi.processors.elasticsearch;
 
-import com.google.gson.JsonObject;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.components.AllowableValue;
@@ -29,6 +28,7 @@ import org.apache.nifi.logging.ProcessorLog;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.apache.nifi.ssl.SSLContextService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
@@ -36,12 +36,14 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.elasticsearch.node.NodeBuilder;
+import org.elasticsearch.shield.ShieldPlugin;
+
 
 public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
 
@@ -82,18 +84,27 @@ public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
             .addValidator(new ElasticsearchClientValidator())
             .build();
 
+    public static final PropertyDescriptor PROP_SSL_CONTEXT_SERVICE = new PropertyDescriptor.Builder()
+            .name("SSL Context Service")
+            .description("The SSL Context Service used to provide client certificate information for TLS/SSL "
+                    + "connections. This service only app")
+            .required(false)
+            .identifiesControllerService(SSLContextService.class)
+            .build();
+
     protected static final PropertyDescriptor PATH_HOME = new PropertyDescriptor.Builder()
             .name("ElasticSearch Path Home")
             .description("ElasticSearch node client requires that path.home be set. For example, "
-                        + "/usr/share/elasticsearch or /usr/local/opt/elasticsearch for homebrew intall "
-                        + "https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-dir-layout.html")
+                    + "/usr/share/elasticsearch or /usr/local/opt/elasticsearch for homebrew install "
+                    + "https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-dir-layout.html")
             .required(false)
+            .expressionLanguageSupported(true)
             .addValidator(new ElasticsearchClientValidator())
             .build();
 
     protected static final PropertyDescriptor PING_TIMEOUT = new PropertyDescriptor.Builder()
             .name("ElasticSearch Ping Timeout")
-            .description("The ping timeout used to determine when a node is unreachable.  " +
+            .description("The ping timeout used to determine when a node is unreachable. " +
                     "For example, 5s (5 seconds). If non-local recommended is 30s")
             .required(true)
             .defaultValue("5s")
@@ -109,7 +120,7 @@ public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
             .build();
 
 
-    protected Client esClient;
+    protected AtomicReference<Client> esClient = new AtomicReference<>();
     protected List<InetSocketAddress> esHosts;
 
     /**
@@ -122,9 +133,10 @@ public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
     public void createClient(ProcessContext context) throws IOException {
 
         ProcessorLog log = getLogger();
-        if (esClient != null) {
+        if (esClient.get() != null) {
             closeClient();
         }
+        esClient.set(null);
 
         log.info("Creating ElasticSearch Client");
 
@@ -134,16 +146,28 @@ public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
             final String pingTimeout = context.getProperty(PING_TIMEOUT).toString();
             final String samplerInterval = context.getProperty(SAMPLER_INTERVAL).toString();
 
-            if ("transport".equals(clusterType)) {
+            final SSLContextService sslService =
+                    context.getProperty(PROP_SSL_CONTEXT_SERVICE).asControllerService(SSLContextService.class);
 
-                //create new transport client
-                Settings settings = Settings.settingsBuilder()
+            if ("transport".equals(clusterType)) {
+                Settings.Builder settingsBuilder = Settings.settingsBuilder()
                         .put("cluster.name", clusterName)
                         .put("client.transport.ping_timeout", pingTimeout)
-                        .put("client.transport.nodes_sampler_interval", samplerInterval)
-                        .build();
+                        .put("client.transport.nodes_sampler_interval", samplerInterval);
 
-                TransportClient transportClient = TransportClient.builder().settings(settings).build();
+                if (sslService != null) {
+                    settingsBuilder.put("shield.transport.ssl", "true")
+                            .put("shield.ssl.keystore.path", sslService.getKeyStoreFile())
+                            .put("shield.ssl.keystore.password", sslService.getKeyStorePassword())
+                            .put("shield.ssl.truststore.path", sslService.getTrustStoreFile())
+                            .put("shield.ssl.truststore.password", sslService.getTrustStorePassword());
+
+                }
+                //create new transport client
+                TransportClient transportClient =
+                        TransportClient.builder()
+                                .addPlugin(ShieldPlugin.class)
+                                .settings(settingsBuilder.build()).build();
 
                 final String hosts = context.getProperty(HOSTS).toString();
                 esHosts = GetEsHosts(hosts);
@@ -153,16 +177,16 @@ public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
                         transportClient.addTransportAddress(new InetSocketTransportAddress(host));
                     }
                 }
-                esClient = transportClient;
+                esClient.set(transportClient);
             } else if ("node".equals(clusterType)) {
 
-                final String pathHome = context.getProperty(PATH_HOME).toString();
+                final String pathHome = context.getProperty(PATH_HOME).evaluateAttributeExpressions().toString();
                 //create new node client
                 Settings settings = Settings.settingsBuilder()
                         .put("path.home", pathHome)
                         .build();
 
-                esClient = NodeBuilder.nodeBuilder().clusterName(clusterName).settings(settings).node().client();
+                esClient.set(NodeBuilder.nodeBuilder().clusterName(clusterName).settings(settings).client(true).node().client());
             }
         } catch (Exception e) {
             log.error("Failed to create Elasticsearch client due to {}", new Object[]{e}, e);
@@ -175,10 +199,10 @@ public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
      */
     @OnStopped
     public final void closeClient() {
-        if (esClient != null) {
+        if (esClient.get() != null) {
             getLogger().info("Closing ElasticSearch Client");
-            esClient.close();
-            esClient = null;
+            esClient.get().close();
+            esClient.set(null);
         }
     }
 
@@ -207,19 +231,6 @@ public abstract class AbstractElasticsearchProcessor extends AbstractProcessor {
 
         return esHosts;
 
-    }
-
-    /**
-     * Get Source for ElasticSearch. The string representation of the JSON object is returned as a byte array after
-     * replacing newlines with spaces
-     *
-     * @param input a JSON object to be serialized to UTF-8
-     * @return a byte array containing the UTF-8 representation (without newlines) of the JSON object
-     */
-    public byte[] getSource(final JsonObject input) {
-        String jsonString = input.toString();
-        jsonString = jsonString.replace("\r\n", " ").replace('\n', ' ').replace('\r', ' ');
-        return jsonString.getBytes(StandardCharsets.UTF_8);
     }
 
     /**

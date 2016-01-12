@@ -16,8 +16,9 @@
  */
 package org.apache.nifi.processors.elasticsearch;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.EventDriven;
+import org.apache.nifi.annotation.behavior.WritesAttribute;
+import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -28,21 +29,17 @@ import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.io.InputStreamCallback;
+import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.elasticsearch.ElasticsearchParseException;
 import org.elasticsearch.ElasticsearchTimeoutException;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
-
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.transport.ReceiveTimeoutTransportException;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -51,31 +48,36 @@ import java.util.Set;
 
 
 @EventDriven
-@Tags({"elasticsearch", "insert", "update", "write", "put"})
+@Tags({"elasticsearch", "fetch", "read"})
 @CapabilityDescription("Writes the contents of a FlowFile to Elasticsearch")
-public class PutElasticsearch extends AbstractElasticsearchProcessor {
+@WritesAttributes({
+        @WritesAttribute(attribute = "filename", description = "The document identifier"),
+        @WritesAttribute(attribute = "es.index", description = "The Elasticsearch index containing the document"),
+        @WritesAttribute(attribute = "es.type", description = "The Elasticsearch document type")
+})
+public class FetchElasticsearch extends AbstractElasticsearchProcessor {
 
     static final Relationship REL_SUCCESS = new Relationship.Builder().name("success")
-            .description("All FlowFiles that are written to Elasticsearch are routed to this relationship").build();
+            .description("All FlowFiles that are read from Elasticsearch are routed to this relationship").build();
 
     static final Relationship REL_FAILURE = new Relationship.Builder().name("failure")
-            .description("All FlowFiles that cannot be written to Elasticsearch are routed to this relationship").build();
+            .description("All FlowFiles that cannot be read from Elasticsearch are routed to this relationship").build();
 
     static final Relationship REL_RETRY = new Relationship.Builder().name("retry")
-            .description("A FlowFile is routed to this relationship if the database cannot be updated but attempting the operation again may succeed")
+            .description("A FlowFile is routed to this relationship if the document cannot be fetched but attempting the operation again may succeed")
             .build();
 
-    public static final PropertyDescriptor ID_ATTRIBUTE = new PropertyDescriptor.Builder()
-            .name("Identifier attribute")
+    public static final PropertyDescriptor DOC_ID = new PropertyDescriptor.Builder()
+            .name("Document Identifier")
             .description("The name of the attribute containing the identifier for each FlowFile")
             .required(true)
-            .expressionLanguageSupported(false)
+            .expressionLanguageSupported(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor INDEX = new PropertyDescriptor.Builder()
             .name("Index")
-            .description("The name of the index to insert into")
+            .description("The name of the index to read from")
             .required(true)
             .expressionLanguageSupported(true)
             .addValidator(StandardValidators.createAttributeExpressionLanguageValidator(
@@ -89,14 +91,6 @@ public class PutElasticsearch extends AbstractElasticsearchProcessor {
             .expressionLanguageSupported(true)
             .addValidator(StandardValidators.createAttributeExpressionLanguageValidator(
                     AttributeExpression.ResultType.STRING, true))
-            .build();
-
-    public static final PropertyDescriptor BATCH_SIZE = new PropertyDescriptor.Builder()
-            .name("Batch Size")
-            .description("The preferred number of FlowFiles to put to the database in a single transaction")
-            .required(true)
-            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
-            .defaultValue("100")
             .build();
 
 
@@ -119,10 +113,9 @@ public class PutElasticsearch extends AbstractElasticsearchProcessor {
         descriptors.add(PATH_HOME);
         descriptors.add(PING_TIMEOUT);
         descriptors.add(SAMPLER_INTERVAL);
-        descriptors.add(ID_ATTRIBUTE);
+        descriptors.add(DOC_ID);
         descriptors.add(INDEX);
         descriptors.add(TYPE);
-        descriptors.add(BATCH_SIZE);
 
         return Collections.unmodifiableList(descriptors);
     }
@@ -130,100 +123,67 @@ public class PutElasticsearch extends AbstractElasticsearchProcessor {
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
-        final int batchSize = context.getProperty(BATCH_SIZE).asInteger();
         final String index = context.getProperty(INDEX).evaluateAttributeExpressions().getValue();
-        final String id_attribute = context.getProperty(ID_ATTRIBUTE).getValue();
+        final String docId = context.getProperty(DOC_ID).evaluateAttributeExpressions().getValue();
         final String docType = context.getProperty(TYPE).evaluateAttributeExpressions().getValue();
 
-        final List<FlowFile> flowFiles = session.get(batchSize);
-        if (flowFiles.isEmpty()) {
+        FlowFile flowFile = session.get();
+        if (flowFile == null) {
             return;
         }
 
         final ProcessorLog logger = getLogger();
-
         try {
-            final BulkRequestBuilder bulk = esClient.get().prepareBulk();
-            for (FlowFile file : flowFiles) {
-                final String id = file.getAttribute(id_attribute);
-                if (id == null) {
-                    getLogger().error("no value in identifier attribute {}", new Object[]{id_attribute});
-                    throw new ProcessException("No value in identifier attribute " + id_attribute);
-                }
-                session.read(file, new InputStreamCallback() {
+
+            logger.debug("Fetching {}/{}/{} from Elasticsearch", new Object[]{index, docType, docId});
+            final GetResponse getResponse =
+                    esClient.get().prepareGet(index, docType, docId).execute().actionGet();
+
+            if (getResponse == null || !getResponse.isExists()) {
+                logger.warn("Failed to read {}/{}/{} from Elasticsearch: Document not found",
+                        new Object[]{index, docType, docId});
+                session.transfer(flowFile, REL_RETRY);
+                context.yield();
+            } else {
+                flowFile = session.putAttribute(flowFile, "filename", docId);
+                flowFile = session.putAttribute(flowFile, "es.index", index);
+                flowFile = session.putAttribute(flowFile, "es.type", docType);
+                flowFile = session.write(flowFile, new OutputStreamCallback() {
                     @Override
-                    public void process(final InputStream in) throws IOException {
-                        String json = IOUtils.toString(in, StandardCharsets.UTF_8)
-                                .replace("\r\n", " ").replace('\n', ' ').replace('\r', ' ');
-                        bulk.add(esClient.get().prepareIndex(index, docType, id)
-                                .setSource(json.getBytes(StandardCharsets.UTF_8)));
+                    public void process(OutputStream out) throws IOException {
+                        out.write(getResponse.getSourceAsBytes());
                     }
                 });
+                logger.debug("Elasticsearch document " + docId + " fetched, routing to success");
+                session.transfer(flowFile, REL_SUCCESS);
             }
-
-            final BulkResponse response = bulk.execute().actionGet();
-            if (response.hasFailures()) {
-                for (final BulkItemResponse item : response.getItems()) {
-                    final FlowFile flowFile = flowFiles.get(item.getItemId());
-                    if (item.isFailed()) {
-                        logger.error("Failed to insert {} into Elasticsearch due to {}",
-                                new Object[]{flowFile, item.getFailure()}, new Exception());
-                        session.transfer(flowFile, REL_FAILURE);
-
-                    } else {
-                        session.transfer(flowFile, REL_SUCCESS);
-
-                    }
-                }
-            } else {
-                for (final FlowFile flowFile : flowFiles) {
-                    session.transfer(flowFile, REL_SUCCESS);
-                }
-            }
-
-
         } catch (NoNodeAvailableException nne) {
-            logger.error("Failed to insert {} into Elasticsearch No Node Available {}", new Object[]{nne}, nne);
-            for (final FlowFile flowFile : flowFiles) {
-                session.transfer(flowFile, REL_RETRY);
-            }
+            logger.error("Failed to read {} from Elasticsearch: No Node Available {}", new Object[]{nne}, nne);
+            session.transfer(flowFile, REL_RETRY);
             context.yield();
 
         } catch (ElasticsearchTimeoutException ete) {
-            logger.error("Failed to insert {} into Elasticsearch Timeout to {}", new Object[]{ete}, ete);
-            for (final FlowFile flowFile : flowFiles) {
-                session.transfer(flowFile, REL_RETRY);
-            }
+            logger.error("Failed to read {} from Elasticsearch : Timeout to {}", new Object[]{ete}, ete);
+            session.transfer(flowFile, REL_RETRY);
             context.yield();
 
         } catch (ReceiveTimeoutTransportException rtt) {
-            logger.error("Failed to insert {} into Elasticsearch ReceiveTimeoutTransportException to {}", new Object[]{rtt}, rtt);
-            for (final FlowFile flowFile : flowFiles) {
-                session.transfer(flowFile, REL_RETRY);
-            }
+            logger.error("Failed to read {} from Elasticsearch: ReceiveTimeoutTransportException to {}", new Object[]{rtt}, rtt);
+            session.transfer(flowFile, REL_FAILURE);
             context.yield();
-
         } catch (ElasticsearchParseException esp) {
-            logger.error("Failed to insert {} into Elasticsearch Parse Exception {}", new Object[]{esp}, esp);
-
-            for (final FlowFile flowFile : flowFiles) {
-                session.transfer(flowFile, REL_FAILURE);
-            }
+            logger.error("Failed to read {} from Elasticsearch Parse Exception {}", new Object[]{esp}, esp);
+            session.transfer(flowFile, REL_FAILURE);
             context.yield();
 
         } catch (NodeClosedException nce) {
-            logger.error("Failed to insert {} into ElasticSearch No Closed Exception {}", new Object[]{nce}, nce);
-            for (final FlowFile flowFile : flowFiles) {
-                session.transfer(flowFile, REL_RETRY);
-            }
+            logger.error("Failed to read {} from Elasticsearch: Node Closed Exception {}", new Object[]{nce}, nce);
+            session.transfer(flowFile, REL_RETRY);
             context.yield();
-
-        } catch (Exception e) {
-            logger.error("Failed to insert {} into Elasticsearch due to {}", new Object[]{e}, e);
-
-            for (final FlowFile flowFile : flowFiles) {
-                session.transfer(flowFile, REL_FAILURE);
-            }
+        }
+        catch (Exception e) {
+            logger.error("Failed to read {} from Elasticsearch: Unknown Exception {}", new Object[]{e}, e);
+            session.transfer(flowFile, REL_FAILURE);
             context.yield();
         }
     }

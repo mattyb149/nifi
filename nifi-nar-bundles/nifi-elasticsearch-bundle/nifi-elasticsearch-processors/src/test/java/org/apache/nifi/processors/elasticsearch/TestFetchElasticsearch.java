@@ -23,11 +23,9 @@ import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ListenableActionFuture;
-import org.elasticsearch.action.bulk.BulkAction;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.index.IndexAction;
-import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.action.get.GetAction;
+import org.elasticsearch.action.get.GetRequestBuilder;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.support.AdapterActionFuture;
 import org.elasticsearch.client.Client;
 import org.junit.After;
@@ -35,20 +33,21 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-public class TestPutElasticsearch {
+public class TestFetchElasticsearch {
 
     private InputStream twitterExample;
     private TestRunner runner;
@@ -67,20 +66,19 @@ public class TestPutElasticsearch {
     }
 
     @Test
-    public void testPutElasticSearchOnTrigger() throws IOException {
-        runner = TestRunners.newTestRunner(new PutElasticsearchTestProcessor(false)); // no failures
+    public void testFetchElasticsearchOnTrigger() throws IOException {
+        runner = TestRunners.newTestRunner(new FetchElasticsearchTestProcessor(true)); // all docs are found
         runner.setValidateExpressionUsage(true);
         runner.setProperty(AbstractElasticsearchProcessor.CLUSTER_NAME, "elasticsearch_brew");
         runner.setProperty(AbstractElasticsearchProcessor.HOSTS, "127.0.0.1:9300");
         runner.setProperty(AbstractElasticsearchProcessor.PING_TIMEOUT, "5s");
         runner.setProperty(AbstractElasticsearchProcessor.SAMPLER_INTERVAL, "5s");
 
-        runner.setProperty(PutElasticsearch.INDEX, "tweet");
+        runner.setProperty(FetchElasticsearch.INDEX, "tweet");
         runner.assertNotValid();
-        runner.setProperty(PutElasticsearch.TYPE, "status");
-        runner.setProperty(PutElasticsearch.BATCH_SIZE, "1");
+        runner.setProperty(FetchElasticsearch.TYPE, "status");
         runner.assertNotValid();
-        runner.setProperty(PutElasticsearch.ID_ATTRIBUTE, "tweet_id");
+        runner.setProperty(FetchElasticsearch.DOC_ID, "${tweet_id}");
         runner.assertValid();
 
         runner.enqueue(twitterExample, new HashMap<String, String>() {{
@@ -88,52 +86,51 @@ public class TestPutElasticsearch {
         }});
         runner.run(1, true, true);
 
-        runner.assertAllFlowFilesTransferred(PutElasticsearch.REL_SUCCESS, 1);
-        final MockFlowFile out = runner.getFlowFilesForRelationship(PutElasticsearch.REL_SUCCESS).get(0);
+        runner.assertAllFlowFilesTransferred(FetchElasticsearch.REL_SUCCESS, 1);
+        final MockFlowFile out = runner.getFlowFilesForRelationship(FetchElasticsearch.REL_SUCCESS).get(0);
         assertNotNull(out);
         out.assertAttributeEquals("tweet_id", "28039652140");
     }
 
     @Test
-    public void testPutElasticSearchOnTriggerWithFailures() throws IOException {
-        runner = TestRunners.newTestRunner(new PutElasticsearchTestProcessor(true)); // simulate failures
-        runner.setValidateExpressionUsage(false);
+    public void testFetchElasticsearchOnTriggerWithFailures() throws IOException {
+        runner = TestRunners.newTestRunner(new FetchElasticsearchTestProcessor(false)); // simulate doc not found
         runner.setProperty(AbstractElasticsearchProcessor.CLUSTER_NAME, "elasticsearch_brew");
         runner.setProperty(AbstractElasticsearchProcessor.HOSTS, "127.0.0.1:9300");
         runner.setProperty(AbstractElasticsearchProcessor.PING_TIMEOUT, "5s");
         runner.setProperty(AbstractElasticsearchProcessor.SAMPLER_INTERVAL, "5s");
-        runner.setProperty(PutElasticsearch.INDEX, "tweet");
-        runner.setProperty(PutElasticsearch.TYPE, "status");
-        runner.setProperty(PutElasticsearch.BATCH_SIZE, "1");
-        runner.setProperty(PutElasticsearch.ID_ATTRIBUTE, "tweet_id");
+        runner.setProperty(FetchElasticsearch.INDEX, "tweet");
+        runner.setProperty(FetchElasticsearch.TYPE, "status");
+        runner.setValidateExpressionUsage(true);
+        runner.setProperty(FetchElasticsearch.DOC_ID, "${tweet_id}");
 
         runner.enqueue(twitterExample, new HashMap<String, String>() {{
             put("tweet_id", "28039652140");
         }});
         runner.run(1, true, true);
 
-        runner.assertAllFlowFilesTransferred(PutElasticsearch.REL_FAILURE, 1);
-        final MockFlowFile out = runner.getFlowFilesForRelationship(PutElasticsearch.REL_FAILURE).get(0);
+        // This test generates a "document not found", which gets routed to retry
+        runner.assertAllFlowFilesTransferred(FetchElasticsearch.REL_RETRY, 1);
+        final MockFlowFile out = runner.getFlowFilesForRelationship(FetchElasticsearch.REL_RETRY).get(0);
         assertNotNull(out);
         out.assertAttributeEquals("tweet_id", "28039652140");
     }
 
     @Test
-    public void testPutElasticSearchOnTriggerNode() throws IOException {
-        runner = TestRunners.newTestRunner(new PutElasticsearchTestProcessor(false)); // no failures
-        runner.setValidateExpressionUsage(false);
+    public void testFetchElasticsearchOnTriggerNode() throws IOException {
+        runner = TestRunners.newTestRunner(new FetchElasticsearchTestProcessor(true)); // no failures
+        runner.setValidateExpressionUsage(true);
         runner.setProperty(AbstractElasticsearchProcessor.CLIENT_TYPE, "node");
         runner.setProperty(AbstractElasticsearchProcessor.CLUSTER_NAME, "elasticsearch_brew");
         runner.setProperty(AbstractElasticsearchProcessor.HOSTS, "127.0.0.1:9300");
         runner.setProperty(AbstractElasticsearchProcessor.PING_TIMEOUT, "5s");
         runner.setProperty(AbstractElasticsearchProcessor.SAMPLER_INTERVAL, "5s");
 
-        runner.setProperty(PutElasticsearch.INDEX, "tweet");
+        runner.setProperty(FetchElasticsearch.INDEX, "tweet");
         runner.assertNotValid();
-        runner.setProperty(PutElasticsearch.TYPE, "status");
-        runner.setProperty(PutElasticsearch.BATCH_SIZE, "1");
+        runner.setProperty(FetchElasticsearch.TYPE, "status");
         runner.assertNotValid();
-        runner.setProperty(PutElasticsearch.ID_ATTRIBUTE, "tweet_id");
+        runner.setProperty(FetchElasticsearch.DOC_ID, "${tweet_id}");
         runner.assertValid();
 
         runner.enqueue(twitterExample, new HashMap<String, String>() {{
@@ -141,8 +138,8 @@ public class TestPutElasticsearch {
         }});
         runner.run(1, true, true);
 
-        runner.assertAllFlowFilesTransferred(PutElasticsearch.REL_SUCCESS, 1);
-        final MockFlowFile out = runner.getFlowFilesForRelationship(PutElasticsearch.REL_SUCCESS).get(0);
+        runner.assertAllFlowFilesTransferred(FetchElasticsearch.REL_SUCCESS, 1);
+        final MockFlowFile out = runner.getFlowFilesForRelationship(FetchElasticsearch.REL_SUCCESS).get(0);
         assertNotNull(out);
         out.assertAttributeEquals("tweet_id", "28039652141");
     }
@@ -150,54 +147,63 @@ public class TestPutElasticsearch {
     /**
      * A Test class that extends the processor in order to inject/mock behavior
      */
-    private static class PutElasticsearchTestProcessor extends PutElasticsearch {
-        boolean responseHasFailures = false;
+    private static class FetchElasticsearchTestProcessor extends FetchElasticsearch {
+        boolean documentExists = true;
 
-        public PutElasticsearchTestProcessor(boolean responseHasFailures) {
-            this.responseHasFailures = responseHasFailures;
+        public FetchElasticsearchTestProcessor(boolean documentExists) {
+            this.documentExists = documentExists;
         }
 
         @Override
         @OnScheduled
         public void createClient(ProcessContext context) throws IOException {
             Client mockClient = mock(Client.class);
-            BulkRequestBuilder bulkRequestBuilder = spy(new BulkRequestBuilder(mockClient, BulkAction.INSTANCE));
-            doReturn(new MockBulkRequestBuilderExecutor(responseHasFailures)).when(bulkRequestBuilder).execute();
-            when(mockClient.prepareBulk()).thenReturn(bulkRequestBuilder);
 
-            IndexRequestBuilder indexRequestBuilder = new IndexRequestBuilder(mockClient, IndexAction.INSTANCE);
-            when(mockClient.prepareIndex(anyString(), anyString(), anyString())).thenReturn(indexRequestBuilder);
+            GetRequestBuilder getRequestBuilder = spy(new GetRequestBuilder(mockClient, GetAction.INSTANCE));
+            doReturn(new MockGetRequestBuilderExecutor(documentExists)).when(getRequestBuilder).execute();
+            when(mockClient.prepareGet(anyString(), anyString(), anyString())).thenReturn(getRequestBuilder);
 
             esClient.set(mockClient);
         }
 
-        private static class MockBulkRequestBuilderExecutor
-                extends AdapterActionFuture<BulkResponse, ActionListener<BulkResponse>>
-                implements ListenableActionFuture<BulkResponse> {
+        private static class MockGetRequestBuilderExecutor
+                extends AdapterActionFuture<GetResponse, ActionListener<GetResponse>>
+                implements ListenableActionFuture<GetResponse> {
 
-            boolean responseHasFailures = false;
+            boolean documentExists = true;
 
-            public MockBulkRequestBuilderExecutor(boolean responseHasFailures) {
-                this.responseHasFailures = responseHasFailures;
+            public MockGetRequestBuilderExecutor(boolean documentExists) {
+                this.documentExists = documentExists;
             }
 
+
             @Override
-            protected BulkResponse convert(ActionListener<BulkResponse> bulkResponseActionListener) {
+            protected GetResponse convert(ActionListener<GetResponse> bulkResponseActionListener) {
                 return null;
             }
 
             @Override
-            public void addListener(ActionListener<BulkResponse> actionListener) {
+            public void addListener(ActionListener<GetResponse> actionListener) {
 
             }
 
             @Override
-            public BulkResponse get() throws InterruptedException, ExecutionException {
-                BulkResponse response = mock(BulkResponse.class);
-                when(response.hasFailures()).thenReturn(responseHasFailures);
+            public GetResponse get() throws InterruptedException, ExecutionException {
+                GetResponse response = mock(GetResponse.class);
+                when(response.isExists()).thenReturn(documentExists);
+                when(response.getSourceAsBytes()).thenReturn("Success".getBytes());
                 return response;
             }
 
+            @Override
+            public GetResponse actionGet() {
+                try {
+                    return get();
+                } catch (Exception e) {
+                    fail(e.getMessage());
+                }
+                return null;
+            }
         }
     }
 
@@ -217,11 +223,11 @@ public class TestPutElasticsearch {
      */
     @Test
     @Ignore("Comment this out if you want to run against local or test ES")
-    public void testPutElasticSearchBasic() throws IOException {
+    public void testFetchElasticsearchBasic() throws IOException {
         System.out.println("Starting test " + new Object() {
         }.getClass().getEnclosingMethod().getName());
-        final TestRunner runner = TestRunners.newTestRunner(new PutElasticsearch());
-        runner.setValidateExpressionUsage(false);
+        final TestRunner runner = TestRunners.newTestRunner(new FetchElasticsearch());
+        runner.setValidateExpressionUsage(true);
 
         //Local Cluster - Mac pulled from brew
         runner.setProperty(AbstractElasticsearchProcessor.CLIENT_TYPE, "transport");
@@ -230,11 +236,10 @@ public class TestPutElasticsearch {
         runner.setProperty(AbstractElasticsearchProcessor.PING_TIMEOUT, "5s");
         runner.setProperty(AbstractElasticsearchProcessor.SAMPLER_INTERVAL, "5s");
 
-        runner.setProperty(PutElasticsearch.INDEX, "tweet");
-        runner.setProperty(PutElasticsearch.BATCH_SIZE, "1");
+        runner.setProperty(FetchElasticsearch.INDEX, "tweet");
 
-        runner.setProperty(PutElasticsearch.TYPE, "status");
-        runner.setProperty(PutElasticsearch.ID_ATTRIBUTE, "tweet_id");
+        runner.setProperty(FetchElasticsearch.TYPE, "status");
+        runner.setProperty(FetchElasticsearch.DOC_ID, "${tweet_id}");
         runner.assertValid();
 
         runner.enqueue(twitterExample, new HashMap<String, String>() {{
@@ -245,28 +250,27 @@ public class TestPutElasticsearch {
         runner.enqueue(twitterExample);
         runner.run(1, true, true);
 
-        runner.assertAllFlowFilesTransferred(PutElasticsearch.REL_SUCCESS, 1);
-        final MockFlowFile out = runner.getFlowFilesForRelationship(PutElasticsearch.REL_SUCCESS).get(0);
+        runner.assertAllFlowFilesTransferred(FetchElasticsearch.REL_SUCCESS, 1);
+        final MockFlowFile out = runner.getFlowFilesForRelationship(FetchElasticsearch.REL_SUCCESS).get(0);
 
     }
 
     @Test
     @Ignore("Comment this out if you want to run against local or test ES")
-    public void testPutElasticSearchBasicNode() throws IOException {
+    public void testFetchElasticsearchBasicNode() throws IOException {
         System.out.println("Starting test " + new Object() {
         }.getClass().getEnclosingMethod().getName());
-        final TestRunner runner = TestRunners.newTestRunner(new PutElasticsearch());
-        runner.setValidateExpressionUsage(false);
+        final TestRunner runner = TestRunners.newTestRunner(new FetchElasticsearch());
+        runner.setValidateExpressionUsage(true);
 
         //Local Cluster - Mac pulled from brew
         runner.setProperty(AbstractElasticsearchProcessor.CLIENT_TYPE, "node");
         runner.setProperty(AbstractElasticsearchProcessor.CLUSTER_NAME, "elasticsearch_brew");
         runner.setProperty(AbstractElasticsearchProcessor.PATH_HOME, "/usr/local/opt/elasticsearch");
-        runner.setProperty(PutElasticsearch.INDEX, "tweet");
-        runner.setProperty(PutElasticsearch.BATCH_SIZE, "1");
+        runner.setProperty(FetchElasticsearch.INDEX, "tweet");
 
-        runner.setProperty(PutElasticsearch.TYPE, "status");
-        runner.setProperty(PutElasticsearch.ID_ATTRIBUTE, "tweet_id");
+        runner.setProperty(FetchElasticsearch.TYPE, "status");
+        runner.setProperty(FetchElasticsearch.DOC_ID, "${tweet_id}");
         runner.assertValid();
 
         runner.enqueue(twitterExample, new HashMap<String, String>() {{
@@ -276,18 +280,18 @@ public class TestPutElasticsearch {
         runner.enqueue(twitterExample);
         runner.run(1, true, true);
 
-        runner.assertAllFlowFilesTransferred(PutElasticsearch.REL_SUCCESS, 1);
-        final MockFlowFile out = runner.getFlowFilesForRelationship(PutElasticsearch.REL_SUCCESS).get(0);
+        runner.assertAllFlowFilesTransferred(FetchElasticsearch.REL_SUCCESS, 1);
+        final MockFlowFile out = runner.getFlowFilesForRelationship(FetchElasticsearch.REL_SUCCESS).get(0);
 
     }
 
     @Test
     @Ignore("Comment this out if you want to run against local or test ES")
-    public void testPutElasticSearchBatch() throws IOException {
+    public void testFetchElasticsearchBatch() throws IOException {
         System.out.println("Starting test " + new Object() {
         }.getClass().getEnclosingMethod().getName());
-        final TestRunner runner = TestRunners.newTestRunner(new PutElasticsearch());
-        runner.setValidateExpressionUsage(false);
+        final TestRunner runner = TestRunners.newTestRunner(new FetchElasticsearch());
+        runner.setValidateExpressionUsage(true);
 
         //Local Cluster - Mac pulled from brew
         runner.setProperty(AbstractElasticsearchProcessor.CLIENT_TYPE, "transport");
@@ -295,11 +299,10 @@ public class TestPutElasticsearch {
         runner.setProperty(AbstractElasticsearchProcessor.HOSTS, "127.0.0.1:9300");
         runner.setProperty(AbstractElasticsearchProcessor.PING_TIMEOUT, "5s");
         runner.setProperty(AbstractElasticsearchProcessor.SAMPLER_INTERVAL, "5s");
-        runner.setProperty(PutElasticsearch.INDEX, "tweet");
-        runner.setProperty(PutElasticsearch.BATCH_SIZE, "100");
+        runner.setProperty(FetchElasticsearch.INDEX, "tweet");
 
-        runner.setProperty(PutElasticsearch.TYPE, "status");
-        runner.setProperty(PutElasticsearch.ID_ATTRIBUTE, "tweet_id");
+        runner.setProperty(FetchElasticsearch.TYPE, "status");
+        runner.setProperty(FetchElasticsearch.DOC_ID, "${tweet_id}");
         runner.assertValid();
 
 
@@ -316,8 +319,8 @@ public class TestPutElasticsearch {
 
         runner.run();
 
-        runner.assertAllFlowFilesTransferred(PutElasticsearch.REL_SUCCESS, 100);
-        final MockFlowFile out = runner.getFlowFilesForRelationship(PutElasticsearch.REL_SUCCESS).get(0);
+        runner.assertAllFlowFilesTransferred(FetchElasticsearch.REL_SUCCESS, 100);
+        final MockFlowFile out = runner.getFlowFilesForRelationship(FetchElasticsearch.REL_SUCCESS).get(0);
 
     }
 
@@ -327,7 +330,7 @@ public class TestPutElasticsearch {
      * @param is input the input stream
      * @return return the converted input stream as a string
      */
-    static String convertStreamToString(java.io.InputStream is) {
+    static String convertStreamToString(InputStream is) {
         java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
         return s.hasNext() ? s.next() : "";
     }
