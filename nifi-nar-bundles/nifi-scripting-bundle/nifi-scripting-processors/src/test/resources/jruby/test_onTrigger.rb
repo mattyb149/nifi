@@ -13,4 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-session.putAttribute(flowFile, "from-content", "test content")
+include_class Java::org.apache.nifi.processors.script.ExecuteScript
+flowFile = session.putAttribute(flowFile, "from-content", "test content")
+session.transfer(flowFile, ExecuteScript::REL_SUCCESS)

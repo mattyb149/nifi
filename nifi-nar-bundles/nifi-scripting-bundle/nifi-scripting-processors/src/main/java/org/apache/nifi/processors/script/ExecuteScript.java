@@ -26,7 +26,6 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ProcessorLog;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
-import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -80,14 +79,15 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Tags({"script", "execute", "groovy", "python", "jython", "jruby", "ruby", "javascript", "js", "lua", "luaj", "scala"})
-@CapabilityDescription("Executes a script")
+@CapabilityDescription("Executes a script given the flow file and a process session.  The script is responsible for "
+        + "handling the incoming flow file (transfer to SUCCESS or remove, e.g.) as well as any flow files created by "
+        + "the script. If the handling is incomplete or incorrect, the session will be rolled back.")
 @DynamicProperty(
         name = "A script engine property to update",
         value = "The value to set it to",
         supportsExpressionLanguage = true,
         description = "Updates a script engine property specified by the Dynamic Property's key with the value "
                 + "specified by the Dynamic Property's value")
-@SeeAlso({})
 public class ExecuteScript extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -98,11 +98,6 @@ public class ExecuteScript extends AbstractProcessor {
     public static final Relationship REL_FAILURE = new Relationship.Builder()
             .name("failure")
             .description("FlowFiles that were failed to process")
-            .build();
-
-    public static final Relationship REL_NOFLOWFILE = new Relationship.Builder()
-            .name("no-flowfile")
-            .description("The script did not return a FlowFile")
             .build();
 
     public static PropertyDescriptor SCRIPT_ENGINE;
@@ -141,8 +136,7 @@ public class ExecuteScript extends AbstractProcessor {
             .build();
 
     // A map from engine name to a custom configurator for that engine
-    private static final Map<String, ScriptEngineConfigurator>
-            scriptEngineConfiguratorMap = new ConcurrentHashMap<>();
+    private final Map<String, ScriptEngineConfigurator> scriptEngineConfiguratorMap = new ConcurrentHashMap<>();
 
     private final AtomicBoolean isInitialized = new AtomicBoolean(false);
     private final Lock lock = new ReentrantLock();
@@ -155,7 +149,7 @@ public class ExecuteScript extends AbstractProcessor {
     private String scriptBody;
     private String modulePath;
     private CompiledScript compiledScript;
-    private AtomicBoolean scriptNeedsReload = new AtomicBoolean(true);
+    private final AtomicBoolean scriptNeedsReload = new AtomicBoolean(true);
     private ScheduledExecutorService reloadService;
     private List<PropertyDescriptor> descriptors;
 
@@ -274,7 +268,6 @@ public class ExecuteScript extends AbstractProcessor {
         final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_FAILURE);
-        relationships.add(REL_NOFLOWFILE);
         return Collections.unmodifiableSet(relationships);
     }
 
@@ -536,11 +529,10 @@ public class ExecuteScript extends AbstractProcessor {
 
         try {
             final StopWatch stopWatch = new StopWatch(true);
-            Object scriptResult;
             try {
                 // If the script has been compiled and nothing has changed, just execute it again
                 if (!scriptNeedsReload.get() && compiledScript != null) {
-                    scriptResult = compiledScript.eval(bindings);
+                    compiledScript.eval(bindings);
                 } else {
                     // Something has changed, let the configurator compile the script if need be, or if one doesn't
                     // exist, fall back to the engine itself
@@ -570,39 +562,24 @@ public class ExecuteScript extends AbstractProcessor {
                             compiler = ((Compilable) scriptEngine);
                         }
                         compiledScript = compiler.compile(reader);
-                        scriptResult = compiledScript.eval(bindings);
+                        compiledScript.eval(bindings);
                     } else {
                         // Evaluate the script with the configurator (if it exists) or the engine
                         if (configurator != null) {
-                            scriptResult = configurator.eval(scriptEngine, scriptStream, modulePath);
+                            configurator.eval(scriptEngine, scriptStream, modulePath);
                         } else {
-                            scriptResult = scriptEngine.eval(reader);
+                            scriptEngine.eval(reader);
                         }
                     }
-
                 }
-
             } catch (IOException | ScriptException e) {
                 throw new ProcessException(e);
             }
 
-            if (scriptResult instanceof FlowFile) {
-                flowFile = (FlowFile) scriptResult;
-                log.info("Successfully processed flowFile {} ({}) in {} millis",
-                        new Object[]{flowFile, flowFile.getSize(), stopWatch.getElapsed(TimeUnit.MILLISECONDS)});
-                session.transfer(flowFile, REL_SUCCESS);
-            } else {
-                if (scriptResult != null) {
-                    log.info("Script result was not a FlowFile, instead it was "
-                            + scriptResult.getClass().getCanonicalName());
-                }
-                session.transfer(flowFile, REL_NOFLOWFILE);
-            }
-
         } catch (ProcessException pe) {
-            log.error("Failed to process flowFile {} due to {}; routing to failure", new Object[]{flowFile, pe.toString()}, pe);
+            log.error("Failed to process flowFile {} due to {}; routing to failure",
+                    new Object[]{flowFile, pe.toString()}, pe);
             session.transfer(flowFile, REL_FAILURE);
         }
-
     }
 }

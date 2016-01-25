@@ -17,28 +17,29 @@
 package org.apache.nifi.processors.script;
 
 import org.apache.nifi.util.MockFlowFile;
-import org.apache.nifi.util.TestRunner;
-import org.apache.nifi.util.TestRunners;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-
-public class TestExecuteLua extends BaseScriptTest {
+/**
+ * Created by mburgess on 1/25/16.
+ */
+public class TestExecuteJython extends BaseScriptTest {
 
     /**
-     * Tests a script that has provides the body of an onTrigger() function.
+     * Tests a Jython script that has provides the body of an onTrigger() function.
      *
      * @throws Exception Any error encountered while testing
      */
     @Test
-    public void testReadFlowFileContentAndStoreInFlowFileAttribute() throws Exception {
-        final TestRunner runner = TestRunners.newTestRunner(new ExecuteScript());
+    public void testReadFlowFileContentAndStoreInFlowFileAttributeWithScriptBody() throws Exception {
         runner.setValidateExpressionUsage(false);
-        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "lua");
-        runner.setProperty(ExecuteScript.SCRIPT_FILE, "target/test/resources/lua/test_onTrigger.lua");
-        runner.setProperty(ExecuteScript.MODULES, "target/test/resources/lua");
+        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "python");
+        runner.setProperty(ExecuteScript.SCRIPT_BODY,
+                "from org.apache.nifi.processors.script import ExecuteScript\n"
+                        + "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
+                        + "session.transfer(flowFile, ExecuteScript.REL_SUCCESS)");
 
         runner.assertValid();
         runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
@@ -49,4 +50,21 @@ public class TestExecuteLua extends BaseScriptTest {
         result.get(0).assertAttributeEquals("from-content", "test content");
     }
 
+    /**
+     * Tests a script that does not transfer or remove the original flow file, thereby causing an error during commit.
+     *
+     * @throws Exception Any error encountered while testing. Expecting
+     */
+    @Test(expected = AssertionError.class)
+    public void testScriptNoTransfer() throws Exception {
+        runner.setValidateExpressionUsage(false);
+        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "python");
+        runner.setProperty(ExecuteScript.SCRIPT_BODY,
+                "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n");
+
+        runner.assertValid();
+        runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
+        runner.run();
+
+    }
 }

@@ -41,7 +41,9 @@ public class GroovyScriptEngineConfigurator implements ScriptEngineConfigurator,
                     + "import org.apache.nifi.processor.io.*\n"
                     + "import org.apache.nifi.processor.util.*\n"
                     + "import org.apache.nifi.processors.script.*\n"
-                    + "import org.apache.nifi.logging.ProcessorLog\n";
+                    + "import org.apache.nifi.logging.ProcessorLog\n"
+                    + "import static org.apache.nifi.processors.script.ExecuteScript.*\n";
+
 
     private ScriptEngine scriptEngine;
 

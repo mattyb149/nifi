@@ -16,4 +16,7 @@
  */
 
 log.asInstanceOf[ProcessorLog].info("Logging from Scala")
-session.asInstanceOf[ProcessSession].putAttribute(flowFile.asInstanceOf[FlowFile], "from-content", "test content")
+val mySession : ProcessSession = session.asInstanceOf[ProcessSession]
+var myFlowFile : FlowFile = flowFile.asInstanceOf[FlowFile]
+myFlowFile = mySession.putAttribute(myFlowFile, "from-content", "test content")
+mySession.transfer(myFlowFile, REL_SUCCESS)

@@ -15,4 +15,5 @@
 --  limitations under the License.
 
 flowFile = session:putAttribute(flowFile, "from-content", "test content")
-return flowFile
+success = luajava.newInstance( "org.apache.nifi.processors.script.ExecuteScript" )
+session:transfer(flowFile, success.REL_SUCCESS)

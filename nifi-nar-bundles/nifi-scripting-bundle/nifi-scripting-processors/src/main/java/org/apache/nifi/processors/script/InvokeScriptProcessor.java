@@ -77,7 +77,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Tags({"script", "invoke", "groovy", "python", "jython", "jruby", "ruby", "javascript", "js", "lua", "luaj", "scala"})
-@CapabilityDescription("Invokes a script engine for a Processor defined in the given script")
+@CapabilityDescription("Invokes a script engine for a Processor defined in the given script. The script must define "
++ "a valid class that implements the Processor interface, and it must set a variable 'processor' to an instance of "
++ "the class. Processor methods such as onTrigger() will be delegated to the scripted Processor instance. Also any "
++ "Relationships or PropertyDescriptors defined by the scripted processor will be added to the configuration dialog.")
 @DynamicProperty(name = "A script engine property to update", value = "The value to set it to", supportsExpressionLanguage = true,
         description = "Updates a script engine property specified by the Dynamic Property's key with the value specified by the Dynamic Property's value")
 @SeeAlso({ExecuteScript.class})
@@ -131,8 +134,7 @@ public class InvokeScriptProcessor extends AbstractSessionFactoryProcessor {
             .build();
 
     // A map from engine name to a custom configurator for that engine
-    private static final Map<String, ScriptEngineConfigurator>
-            scriptEngineConfiguratorMap = new ConcurrentHashMap<>();
+    private final Map<String, ScriptEngineConfigurator> scriptEngineConfiguratorMap = new ConcurrentHashMap<>();
 
     private final AtomicReference<Processor> processor = new AtomicReference<>();
     private final AtomicReference<Collection<ValidationResult>> validationResults =

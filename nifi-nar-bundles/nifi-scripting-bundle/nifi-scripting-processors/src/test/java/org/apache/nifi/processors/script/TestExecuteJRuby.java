@@ -16,29 +16,16 @@
  */
 package org.apache.nifi.processors.script;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 
-public class TestExecuteJRuby {
-
-    /**
-     * Copies all scripts to the target directory because when they are compiled they can leave unwanted .class files.
-     *
-     * @throws Exception Any error encountered while testing
-     */
-    @BeforeClass
-    public static void setup() throws Exception {
-        FileUtils.copyDirectory(new File("src/test/resources"), new File("target/test/resources"));
-    }
+public class TestExecuteJRuby extends BaseScriptTest {
 
     /**
      * Tests a script that has provides the body of an onTrigger() function.

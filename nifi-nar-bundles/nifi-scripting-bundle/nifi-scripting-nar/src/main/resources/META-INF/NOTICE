@@ -34,41 +34,6 @@ The following binary components are provided under the Apache Software License v
         under the Apache License 2.0 (see: StringUtils.containsWhitespace())
 
 ******************
-Python Software Foundation License v2
-******************
-
-The following binary components are provided under the Python Software Foundation License v2
-
-  (PSFLv2) Jython (org.python:jython-standalone:2.7.0 - http://www.jython.org/)
-    The following NOTICE information applies:
-        Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Jython Developers All rights reserved.
-
-
-******************
-MIT License
-******************
-
-The following binary components are provided under an MIT-style license
-
-  (MIT) Luaj (org.luaj:luaj-jse:3.0.1 - http://www.luaj.org/luaj/3.0/README.html)
-    The following NOTICE information applies:
-        Copyright (c) 2009-2011 Luaj.org. All rights reserved.
-
-******************
-BSD License
-******************
-
-The following binary components are provided under a BSD-style license
-
-  (BSD 3-clause) Scala - http://www.scala-lang.org
-        org.scala-lang:scala-compiler:2.11.7
-        org.scala-lang:scala-reflect:2.11.7
-        org.scala-lang:scala-lang:2.11.7
-    The following NOTICE information applies:
-        Copyright (c) 2002-2016 EPFL
-        Copyright (c) 2011-2016 Typesafe, Inc.
-
-******************
 Eclipse Public License v1.0
 ******************
 

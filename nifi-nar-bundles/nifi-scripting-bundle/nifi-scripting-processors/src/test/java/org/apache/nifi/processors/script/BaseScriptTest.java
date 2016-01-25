@@ -17,23 +17,21 @@
 package org.apache.nifi.processors.script;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Test;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 import static org.junit.Assert.assertNotNull;
 
+/**
+ * An abstract class with common methods, variables, etc. used by scripting processor unit tests
+ */
+public abstract class BaseScriptTest {
 
-public class TestExecuteScala {
-
-    TestRunner runner;
+    protected TestRunner runner;
 
     /**
      * Copies all scripts to the target directory because when they are compiled they can leave unwanted .class files.
@@ -52,26 +50,4 @@ public class TestExecuteScala {
         assertNotNull(executeScript.getSupportedPropertyDescriptors());
         runner = TestRunners.newTestRunner(executeScript);
     }
-
-    /**
-     * Tests a script that has provides the body of an onTrigger() function.
-     *
-     * @throws Exception Any error encountered while testing
-     */
-    @Test
-    public void testReadFlowFileContentAndStoreInFlowFileAttribute() throws Exception {
-        runner.setValidateExpressionUsage(false);
-        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Scala");
-        runner.setProperty(ExecuteScript.SCRIPT_FILE, "target/test/resources/scala/test_onTrigger.scala");
-        runner.setProperty(ExecuteScript.MODULES, "target/test/resources/scala");
-
-        runner.assertValid();
-        runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
-        runner.run();
-
-        runner.assertAllFlowFilesTransferred("success", 1);
-        final List<MockFlowFile> result = runner.getFlowFilesForRelationship("success");
-        result.get(0).assertAttributeEquals("from-content", "test content");
-    }
-
 }

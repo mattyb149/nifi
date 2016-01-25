@@ -46,6 +46,7 @@ public class ScalaScriptEngineConfigurator implements ScriptEngineConfigurator, 
                     + "import org.apache.nifi.processor.io._\n"
                     + "import org.apache.nifi.processor.util._\n"
                     + "import org.apache.nifi.processors.script._\n"
+                    + "import org.apache.nifi.processors.script.ExecuteScript._\n"
                     + "import org.apache.nifi.logging.ProcessorLog\n";
 
     private ScriptEngine scriptEngine;

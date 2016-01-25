@@ -16,43 +16,21 @@
  */
 package org.apache.nifi.processors.script;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.nifi.util.MockFlowFile;
-import org.apache.nifi.util.TestRunner;
-import org.apache.nifi.util.TestRunners;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 
 
-public class TestExecuteGroovy {
+public class TestExecuteGroovy extends BaseScriptTest {
 
-    private TestRunner runner;
-
-    /**
-     * Copies all scripts to the target directory because when they are compiled they can leave unwanted .class files.
-     *
-     * @throws Exception Any error encountered while testing
-     */
-    @BeforeClass
-    public static void setupBeforeClass() throws Exception {
-        FileUtils.copyDirectory(new File("src/test/resources"), new File("target/test/resources"));
-    }
-
-    @Before
-    public void setup() throws Exception {
-        final ExecuteScript executeScript = new ExecuteScript();
-        // Need to do something to initialize the properties, like retrieve the list of properties
-        assertNotNull(executeScript.getSupportedPropertyDescriptors());
-        runner = TestRunners.newTestRunner(executeScript);
-    }
+    private final String TEST_CSV_DATA = "gender,title,first,last\n"
+            + "female,miss,marlene,shaw\n"
+            + "male,mr,todd,graham";
 
     /**
      * Tests a script file that has provides the body of an onTrigger() function.
@@ -76,6 +54,53 @@ public class TestExecuteGroovy {
     }
 
     /**
+     * Tests a script file that creates and transfers a new flow file.
+     *
+     * @throws Exception Any error encountered while testing
+     */
+    @Test
+    public void testCreateNewFlowFileWithScriptFile() throws Exception {
+        runner.setValidateExpressionUsage(false);
+        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
+        runner.setProperty(ExecuteScript.SCRIPT_FILE, "target/test/resources/groovy/test_onTrigger_newFlowFile.groovy");
+        runner.setProperty(ExecuteScript.MODULES, "target/test/resources/groovy");
+
+        runner.assertValid();
+        runner.enqueue(TEST_CSV_DATA.getBytes(StandardCharsets.UTF_8));
+        runner.run();
+
+        // The script removes the original file and transfers only the new one
+        assertEquals(1, runner.getRemovedCount());
+        runner.assertAllFlowFilesTransferred(ExecuteScript.REL_SUCCESS, 1);
+        final List<MockFlowFile> result = runner.getFlowFilesForRelationship(ExecuteScript.REL_SUCCESS);
+        result.get(0).assertAttributeEquals("filename", "split_cols.txt");
+    }
+
+    /**
+     * Tests a script file that changes the content of the incoming flowfile.
+     *
+     * @throws Exception Any error encountered while testing
+     */
+    @Test
+    public void testChangeFlowFileWithScriptFile() throws Exception {
+        runner.setValidateExpressionUsage(false);
+        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
+        runner.setProperty(ExecuteScript.SCRIPT_FILE, "target/test/resources/groovy/test_onTrigger_changeContent.groovy");
+        runner.setProperty(ExecuteScript.MODULES, "target/test/resources/groovy");
+
+        runner.assertValid();
+        runner.enqueue(TEST_CSV_DATA.getBytes(StandardCharsets.UTF_8));
+        runner.run();
+
+        runner.assertAllFlowFilesTransferred(ExecuteScript.REL_SUCCESS, 1);
+        final List<MockFlowFile> result = runner.getFlowFilesForRelationship(ExecuteScript.REL_SUCCESS);
+        MockFlowFile resultFile = result.get(0);
+        resultFile.assertAttributeEquals("selected.columns", "first,last");
+        resultFile.assertContentEquals("Marlene Shaw\nTodd Graham\n");
+    }
+
+
+    /**
      * Tests a script that has provides the body of an onTrigger() function.
      *
      * @throws Exception Any error encountered while testing
@@ -84,7 +109,9 @@ public class TestExecuteGroovy {
     public void testReadFlowFileContentAndStoreInFlowFileAttributeWithScriptBody() throws Exception {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
-        runner.setProperty(ExecuteScript.SCRIPT_BODY, "session.putAttribute(flowFile, \"from-content\", \"test content\")");
+        runner.setProperty(ExecuteScript.SCRIPT_BODY,
+                "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
+                        + "session.transfer(flowFile, REL_SUCCESS)");
         runner.setProperty(ExecuteScript.MODULES, "target/test/resources/groovy");
 
         runner.assertValid();
@@ -106,8 +133,9 @@ public class TestExecuteGroovy {
     public void testReadFlowFileContentAndStoreInFlowFileAttributeWithScriptBodyNoModules() throws Exception {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
-        runner.setProperty(ExecuteScript.SCRIPT_BODY, "session.putAttribute(flowFile, \"from-content\", \"test content\")");
-
+        runner.setProperty(ExecuteScript.SCRIPT_BODY,
+                "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
+                        + "session.transfer(flowFile, REL_SUCCESS)");
         runner.assertValid();
         runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
         runner.run();
@@ -115,6 +143,24 @@ public class TestExecuteGroovy {
         runner.assertAllFlowFilesTransferred(ExecuteScript.REL_SUCCESS, 1);
         final List<MockFlowFile> result = runner.getFlowFilesForRelationship(ExecuteScript.REL_SUCCESS);
         result.get(0).assertAttributeEquals("from-content", "test content");
+    }
+
+    /**
+     * Tests a script that does not transfer or remove the original flow file, thereby causing an error during commit.
+     *
+     * @throws Exception Any error encountered while testing. Expecting
+     */
+    @Test(expected = AssertionError.class)
+    public void testScriptNoTransfer() throws Exception {
+        runner.setValidateExpressionUsage(false);
+        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
+        runner.setProperty(ExecuteScript.SCRIPT_BODY,
+                "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n");
+
+        runner.assertValid();
+        runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
+        runner.run();
+
     }
 
     /**
@@ -126,7 +172,9 @@ public class TestExecuteGroovy {
     public void testReadFlowFileContentAndStoreInFlowFileCustomAttribute() throws Exception {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
-        runner.setProperty(ExecuteScript.SCRIPT_BODY, "session.putAttribute(flowFile, \"from-content\", \"${testprop}\")");
+        runner.setProperty(ExecuteScript.SCRIPT_BODY,
+                "flowFile = session.putAttribute(flowFile, \"from-content\", \"${testprop}\")\n"
+                        + "session.transfer(flowFile, REL_SUCCESS)");
         runner.setProperty("testprop", "test content");
 
         runner.assertValid();
@@ -158,26 +206,4 @@ public class TestExecuteGroovy {
         final List<MockFlowFile> result = runner.getFlowFilesForRelationship(ExecuteScript.REL_FAILURE);
         assertFalse(result.isEmpty());
     }
-
-    /**
-     * Tests a script that does not return a FlowFile. The expected result is that the FlowFile will be routed to
-     * no-flowfile
-     *
-     * @throws Exception Any error encountered while testing
-     */
-    @Test
-    public void testScriptDoesNotReturnFlowFile() throws Exception {
-        runner.setValidateExpressionUsage(false);
-        runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
-        runner.setProperty(ExecuteScript.SCRIPT_BODY, "'This is not a FlowFile'");
-
-        runner.assertValid();
-        runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
-        runner.run();
-
-        runner.assertAllFlowFilesTransferred(ExecuteScript.REL_NOFLOWFILE, 1);
-        final List<MockFlowFile> result = runner.getFlowFilesForRelationship(ExecuteScript.REL_NOFLOWFILE);
-        assertFalse(result.isEmpty());
-    }
-
 }
