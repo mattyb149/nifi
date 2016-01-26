@@ -13,7 +13,7 @@
 --  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 --  See the License for the specific language governing permissions and
 --  limitations under the License.
-
+flowFile = session:get()
 flowFile = session:putAttribute(flowFile, "from-content", "test content")
 success = luajava.newInstance( "org.apache.nifi.processors.script.ExecuteScript" )
 session:transfer(flowFile, success.REL_SUCCESS)

@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include_class Java::org.apache.nifi.processors.script.ExecuteScript
+java_import Java::org.apache.nifi.processors.script.ExecuteScript
+flowFile = session.get()
+if flowFile.nil?
+    return
+end
 flowFile = session.putAttribute(flowFile, "from-content", "test content")
 session.transfer(flowFile, ExecuteScript::REL_SUCCESS)

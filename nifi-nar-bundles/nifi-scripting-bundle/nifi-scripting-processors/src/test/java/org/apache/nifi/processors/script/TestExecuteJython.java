@@ -38,6 +38,7 @@ public class TestExecuteJython extends BaseScriptTest {
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "python");
         runner.setProperty(ExecuteScript.SCRIPT_BODY,
                 "from org.apache.nifi.processors.script import ExecuteScript\n"
+                        + "flowFile = session.get()\n"
                         + "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
                         + "session.transfer(flowFile, ExecuteScript.REL_SUCCESS)");
 

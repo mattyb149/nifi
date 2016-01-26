@@ -16,6 +16,7 @@
  */
 package org.apache.nifi.processors.script;
 
+import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.util.MockFlowFile;
 import org.junit.Test;
 
@@ -110,7 +111,11 @@ public class TestExecuteGroovy extends BaseScriptTest {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
         runner.setProperty(ExecuteScript.SCRIPT_BODY,
-                "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
+                "FlowFile flowFile = session.get();\n"
+                        + "if (flowFile == null) {\n"
+                        + "  return;\n"
+                        + "        }\n"
+                        + "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
                         + "session.transfer(flowFile, REL_SUCCESS)");
         runner.setProperty(ExecuteScript.MODULES, "target/test/resources/groovy");
 
@@ -134,7 +139,11 @@ public class TestExecuteGroovy extends BaseScriptTest {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
         runner.setProperty(ExecuteScript.SCRIPT_BODY,
-                "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
+                "FlowFile flowFile = session.get();\n"
+                        + "if (flowFile == null) {\n"
+                        + "  return;\n"
+                        + "        }\n"
+                        + "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n"
                         + "session.transfer(flowFile, REL_SUCCESS)");
         runner.assertValid();
         runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
@@ -155,7 +164,11 @@ public class TestExecuteGroovy extends BaseScriptTest {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
         runner.setProperty(ExecuteScript.SCRIPT_BODY,
-                "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n");
+                "FlowFile flowFile = session.get();\n"
+                        + "if (flowFile == null) {\n"
+                        + "  return;\n"
+                        + "        }\n"
+                        + "flowFile = session.putAttribute(flowFile, \"from-content\", \"test content\")\n");
 
         runner.assertValid();
         runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
@@ -173,7 +186,11 @@ public class TestExecuteGroovy extends BaseScriptTest {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
         runner.setProperty(ExecuteScript.SCRIPT_BODY,
-                "flowFile = session.putAttribute(flowFile, \"from-content\", \"${testprop}\")\n"
+                "FlowFile flowFile = session.get();\n"
+                        + "if (flowFile == null) {\n"
+                        + "  return;\n"
+                        + "        }\n"
+                        + "flowFile = session.putAttribute(flowFile, \"from-content\", \"${testprop}\")\n"
                         + "session.transfer(flowFile, REL_SUCCESS)");
         runner.setProperty("testprop", "test content");
 
@@ -192,7 +209,7 @@ public class TestExecuteGroovy extends BaseScriptTest {
      *
      * @throws Exception Any error encountered while testing
      */
-    @Test
+    @Test(expected = AssertionError.class)
     public void testScriptException() throws Exception {
         runner.setValidateExpressionUsage(false);
         runner.setProperty(ExecuteScript.SCRIPT_ENGINE, "Groovy");
@@ -201,9 +218,5 @@ public class TestExecuteGroovy extends BaseScriptTest {
         runner.assertValid();
         runner.enqueue("test content".getBytes(StandardCharsets.UTF_8));
         runner.run();
-
-        runner.assertAllFlowFilesTransferred(ExecuteScript.REL_FAILURE, 1);
-        final List<MockFlowFile> result = runner.getFlowFilesForRelationship(ExecuteScript.REL_FAILURE);
-        assertFalse(result.isEmpty());
     }
 }

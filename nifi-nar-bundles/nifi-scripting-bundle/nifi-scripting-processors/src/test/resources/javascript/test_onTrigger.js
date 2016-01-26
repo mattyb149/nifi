@@ -14,5 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-flowFile = session.putAttribute(flowFile, "from-content", "test content")
-session.transfer(flowFile, org.apache.nifi.processors.script.ExecuteScript.REL_SUCCESS)
+flowFile = session.get();
+if (flowFile != null) {
+    flowFile = session.putAttribute(flowFile, "from-content", "test content")
+    session.transfer(flowFile, org.apache.nifi.processors.script.ExecuteScript.REL_SUCCESS)
+}

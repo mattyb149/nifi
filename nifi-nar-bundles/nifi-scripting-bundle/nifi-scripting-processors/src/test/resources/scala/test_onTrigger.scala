@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-log.asInstanceOf[ProcessorLog].info("Logging from Scala")
 val mySession : ProcessSession = session.asInstanceOf[ProcessSession]
+val flowFile : FlowFile = mySession.get()
 var myFlowFile : FlowFile = flowFile.asInstanceOf[FlowFile]
 myFlowFile = mySession.putAttribute(myFlowFile, "from-content", "test content")
 mySession.transfer(myFlowFile, REL_SUCCESS)

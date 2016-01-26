@@ -14,5 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+def flowFile = session.get();
+if (flowFile == null) {
+    return;
+}
 flowFile = session.putAttribute(flowFile, "from-content", "test content")
 session.transfer(flowFile, REL_SUCCESS)

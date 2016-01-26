@@ -501,10 +501,7 @@ public class ExecuteScript extends AbstractProcessor {
             }
         }
         ProcessorLog log = getLogger();
-        FlowFile flowFile = session.get();
-        if (flowFile == null) {
-            return;
-        }
+
 
         String[] args = context.getProperty(SCRIPT_ARGS).evaluateAttributeExpressions().getValue().split(";");
 
@@ -513,7 +510,6 @@ public class ExecuteScript extends AbstractProcessor {
         bindings.put("args", args);
         bindings.put(ScriptEngine.ARGV, Arrays.asList(args));
         bindings.put("session", session);
-        bindings.put("flowFile", flowFile);
         bindings.put("log", log);
 
         // Find the user-added properties and set them on the script
@@ -527,59 +523,54 @@ public class ExecuteScript extends AbstractProcessor {
             }
         }
 
+
+        final StopWatch stopWatch = new StopWatch(true);
         try {
-            final StopWatch stopWatch = new StopWatch(true);
-            try {
-                // If the script has been compiled and nothing has changed, just execute it again
-                if (!scriptNeedsReload.get() && compiledScript != null) {
+            // If the script has been compiled and nothing has changed, just execute it again
+            if (!scriptNeedsReload.get() && compiledScript != null) {
+                compiledScript.eval(bindings);
+            } else {
+                // Something has changed, let the configurator compile the script if need be, or if one doesn't
+                // exist, fall back to the engine itself
+                scriptEngine.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
+                InputStream scriptStream;
+                if (scriptPath != null) {
+                    scriptStream = new FileInputStream(scriptPath);
+                } else if (scriptBody != null) {
+                    scriptStream = new ByteArrayInputStream(scriptBody.getBytes("UTF-8"));
+                } else {
+                    throw new ProcessException("One of Script Path or Script Body must be set!");
+                }
+
+                // Create a BufferedReader in case we need it (only non-Compilable configurators don't)
+                Reader reader = new BufferedReader(new InputStreamReader(scriptStream));
+
+                // Execute any engine-specific configuration before the script is evaluated
+                ScriptEngineConfigurator configurator =
+                        scriptEngineConfiguratorMap.get(scriptEngineName);
+
+                // Recompile (new or changed script) if available
+                if (scriptEngine instanceof Compilable) {
+                    Compilable compiler;
+                    if (configurator != null && configurator instanceof Compilable) {
+                        compiler = ((Compilable) configurator);
+                    } else {
+                        compiler = ((Compilable) scriptEngine);
+                    }
+                    compiledScript = compiler.compile(reader);
                     compiledScript.eval(bindings);
                 } else {
-                    // Something has changed, let the configurator compile the script if need be, or if one doesn't
-                    // exist, fall back to the engine itself
-                    scriptEngine.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
-                    InputStream scriptStream;
-                    if (scriptPath != null) {
-                        scriptStream = new FileInputStream(scriptPath);
-                    } else if (scriptBody != null) {
-                        scriptStream = new ByteArrayInputStream(scriptBody.getBytes("UTF-8"));
+                    // Evaluate the script with the configurator (if it exists) or the engine
+                    if (configurator != null) {
+                        configurator.eval(scriptEngine, scriptStream, modulePath);
                     } else {
-                        throw new ProcessException("One of Script Path or Script Body must be set!");
-                    }
-
-                    // Create a BufferedReader in case we need it (only non-Compilable configurators don't)
-                    Reader reader = new BufferedReader(new InputStreamReader(scriptStream));
-
-                    // Execute any engine-specific configuration before the script is evaluated
-                    ScriptEngineConfigurator configurator =
-                            scriptEngineConfiguratorMap.get(scriptEngineName);
-
-                    // Recompile (new or changed script) if available
-                    if (scriptEngine instanceof Compilable) {
-                        Compilable compiler;
-                        if (configurator != null && configurator instanceof Compilable) {
-                            compiler = ((Compilable) configurator);
-                        } else {
-                            compiler = ((Compilable) scriptEngine);
-                        }
-                        compiledScript = compiler.compile(reader);
-                        compiledScript.eval(bindings);
-                    } else {
-                        // Evaluate the script with the configurator (if it exists) or the engine
-                        if (configurator != null) {
-                            configurator.eval(scriptEngine, scriptStream, modulePath);
-                        } else {
-                            scriptEngine.eval(reader);
-                        }
+                        scriptEngine.eval(reader);
                     }
                 }
-            } catch (IOException | ScriptException e) {
-                throw new ProcessException(e);
             }
-
-        } catch (ProcessException pe) {
-            log.error("Failed to process flowFile {} due to {}; routing to failure",
-                    new Object[]{flowFile, pe.toString()}, pe);
-            session.transfer(flowFile, REL_FAILURE);
+        } catch (IOException | ScriptException e) {
+            throw new ProcessException(e);
         }
+
     }
 }
