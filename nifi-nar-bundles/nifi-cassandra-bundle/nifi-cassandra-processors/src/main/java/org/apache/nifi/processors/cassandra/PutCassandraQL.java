@@ -344,8 +344,8 @@ public class PutCassandraQL extends AbstractCassandraProcessor {
 
                     } else if (mainType.equals(DataType.blob())) {
                         statement.setBytes(paramIndex, (ByteBuffer) typeCodec.parse(paramValue));
-                    }
-                    else if (mainType.equals(DataType.timestamp())) {
+
+                    } else if (mainType.equals(DataType.timestamp())) {
                         statement.setTimestamp(paramIndex, (Date) typeCodec.parse(paramValue));
                     }
                     return;
