@@ -311,6 +311,10 @@ public abstract class AbstractCassandraProcessor extends AbstractProcessor {
             return row.getDouble(i);
 
         } else if (dataType.equals(DataType.timestamp())) {
+            return row.getTimestamp(i);
+
+        } else if (dataType.equals(DataType.date())
+                || dataType.equals(DataType.time())) {
             return row.getDate(i);
 
         } else if (dataType.isCollection()) {
