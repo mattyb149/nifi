@@ -49,9 +49,13 @@ import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.DecimalFormat;
+import java.text.ParseException;
 
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -243,6 +247,181 @@ public class JdbcCommon {
         }
 
         return builder.endRecord();
+    }
+
+    public static String getMaxValueFromRow(ResultSet resultSet,
+                                            int columnIndex,
+                                            Integer type,
+                                            String maxValueString,
+                                            String preProcessStrategy)
+            throws ParseException, IOException, SQLException {
+
+        // Skip any columns we're not keeping track of or whose value is null
+        if (type == null || resultSet.getObject(columnIndex) == null) {
+            return null;
+        }
+
+        switch (type) {
+            case CHAR:
+            case LONGNVARCHAR:
+            case LONGVARCHAR:
+            case NCHAR:
+            case NVARCHAR:
+            case VARCHAR:
+            case ROWID:
+                String colStringValue = resultSet.getString(columnIndex);
+                if (maxValueString == null || colStringValue.compareTo(maxValueString) > 0) {
+                    return colStringValue;
+                }
+                break;
+
+            case INTEGER:
+            case SMALLINT:
+            case TINYINT:
+                Integer colIntValue = resultSet.getInt(columnIndex);
+                Integer maxIntValue = null;
+                if (maxValueString != null) {
+                    maxIntValue = Integer.valueOf(maxValueString);
+                }
+                if (maxIntValue == null || colIntValue > maxIntValue) {
+                    return colIntValue.toString();
+                }
+                break;
+
+            case BIGINT:
+                Long colLongValue = resultSet.getLong(columnIndex);
+                Long maxLongValue = null;
+                if (maxValueString != null) {
+                    maxLongValue = Long.valueOf(maxValueString);
+                }
+                if (maxLongValue == null || colLongValue > maxLongValue) {
+                    return colLongValue.toString();
+                }
+                break;
+
+            case FLOAT:
+            case REAL:
+            case DOUBLE:
+                Double colDoubleValue = resultSet.getDouble(columnIndex);
+                Double maxDoubleValue = null;
+                if (maxValueString != null) {
+                    maxDoubleValue = Double.valueOf(maxValueString);
+                }
+                if (maxDoubleValue == null || colDoubleValue > maxDoubleValue) {
+                    return colDoubleValue.toString();
+                }
+                break;
+
+            case DECIMAL:
+            case NUMERIC:
+                BigDecimal colBigDecimalValue = resultSet.getBigDecimal(columnIndex);
+                BigDecimal maxBigDecimalValue = null;
+                if (maxValueString != null) {
+                    DecimalFormat df = new DecimalFormat();
+                    df.setParseBigDecimal(true);
+                    maxBigDecimalValue = (BigDecimal) df.parse(maxValueString);
+                }
+                if (maxBigDecimalValue == null || colBigDecimalValue.compareTo(maxBigDecimalValue) > 0) {
+                    return colBigDecimalValue.toString();
+                }
+                break;
+
+            case DATE:
+                Date rawColDateValue = resultSet.getDate(columnIndex);
+                java.sql.Date colDateValue = new java.sql.Date(rawColDateValue.getTime());
+                java.sql.Date maxDateValue = null;
+                if (maxValueString != null) {
+                    maxDateValue = java.sql.Date.valueOf(maxValueString);
+                }
+                if (maxDateValue == null || colDateValue.after(maxDateValue)) {
+                    return colDateValue.toString();
+                }
+                break;
+
+            case TIME:
+                Date rawColTimeValue = resultSet.getDate(columnIndex);
+                java.sql.Time colTimeValue = new java.sql.Time(rawColTimeValue.getTime());
+                java.sql.Time maxTimeValue = null;
+                if (maxValueString != null) {
+                    maxTimeValue = java.sql.Time.valueOf(maxValueString);
+                }
+                if (maxTimeValue == null || colTimeValue.after(maxTimeValue)) {
+                    return colTimeValue.toString();
+                }
+                break;
+
+            case TIMESTAMP:
+                // Oracle timestamp queries must use literals in java.sql.Date format
+                if ("Oracle".equals(preProcessStrategy)) {
+                    Date rawColOracleTimestampValue = resultSet.getDate(columnIndex);
+                    java.sql.Date oracleTimestampValue = new java.sql.Date(rawColOracleTimestampValue.getTime());
+                    java.sql.Date maxOracleTimestampValue = null;
+                    if (maxValueString != null) {
+                        maxOracleTimestampValue = java.sql.Date.valueOf(maxValueString);
+                    }
+                    if (maxOracleTimestampValue == null || oracleTimestampValue.after(maxOracleTimestampValue)) {
+                        return oracleTimestampValue.toString();
+                    }
+                } else {
+                    Timestamp rawColTimestampValue = resultSet.getTimestamp(columnIndex);
+                    java.sql.Timestamp colTimestampValue = new java.sql.Timestamp(rawColTimestampValue.getTime());
+                    java.sql.Timestamp maxTimestampValue = null;
+                    if (maxValueString != null) {
+                        maxTimestampValue = java.sql.Timestamp.valueOf(maxValueString);
+                    }
+                    if (maxTimestampValue == null || colTimestampValue.after(maxTimestampValue)) {
+                        return colTimestampValue.toString();
+                    }
+                }
+                break;
+
+            case BIT:
+            case BOOLEAN:
+            case BINARY:
+            case VARBINARY:
+            case LONGVARBINARY:
+            case ARRAY:
+            case BLOB:
+            case CLOB:
+            default:
+                throw new IOException("Type for column " + columnIndex + " is not valid for maintaining maximum value");
+        }
+        return null;
+    }
+
+    /**
+     * Returns a SQL literal for the given value based on its type. For example, values of character type need to be enclosed
+     * in single quotes, whereas values of numeric type should not be.
+     *
+     * @param type  The JDBC type for the desired literal
+     * @param value The value to be converted to a SQL literal
+     * @return A String representing the given value as a literal of the given type
+     */
+    public static String getLiteralByType(int type, String value, String preProcessStrategy) {
+        // Format value based on column type. For example, strings and timestamps need to be quoted
+        switch (type) {
+            // For string-represented values, put in single quotes
+            case CHAR:
+            case LONGNVARCHAR:
+            case LONGVARCHAR:
+            case NCHAR:
+            case NVARCHAR:
+            case VARCHAR:
+            case ROWID:
+            case DATE:
+            case TIME:
+                return "'" + value + "'";
+            case TIMESTAMP:
+                // Timestamp literals in Oracle need to be cast with TO_DATE
+                if ("Oracle".equals(preProcessStrategy)) {
+                    return "to_date('" + value + "', 'yyyy-mm-dd HH24:MI:SS')";
+                } else {
+                    return "'" + value + "'";
+                }
+                // Else leave as is (numeric types, e.g.)
+            default:
+                return value;
+        }
     }
 
     /**

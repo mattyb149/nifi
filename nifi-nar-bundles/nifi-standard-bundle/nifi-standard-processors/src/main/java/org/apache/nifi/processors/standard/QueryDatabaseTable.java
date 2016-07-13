@@ -46,16 +46,12 @@ import org.apache.nifi.util.StopWatch;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
-import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,33 +62,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static java.sql.Types.ARRAY;
-import static java.sql.Types.BIGINT;
-import static java.sql.Types.BINARY;
-import static java.sql.Types.BIT;
-import static java.sql.Types.BLOB;
-import static java.sql.Types.BOOLEAN;
-import static java.sql.Types.CHAR;
-import static java.sql.Types.CLOB;
-import static java.sql.Types.DATE;
-import static java.sql.Types.DECIMAL;
-import static java.sql.Types.DOUBLE;
-import static java.sql.Types.FLOAT;
-import static java.sql.Types.INTEGER;
-import static java.sql.Types.LONGNVARCHAR;
-import static java.sql.Types.LONGVARBINARY;
-import static java.sql.Types.LONGVARCHAR;
-import static java.sql.Types.NCHAR;
-import static java.sql.Types.NUMERIC;
-import static java.sql.Types.NVARCHAR;
-import static java.sql.Types.REAL;
-import static java.sql.Types.ROWID;
-import static java.sql.Types.SMALLINT;
-import static java.sql.Types.TIME;
-import static java.sql.Types.TIMESTAMP;
-import static java.sql.Types.TINYINT;
-import static java.sql.Types.VARBINARY;
-import static java.sql.Types.VARCHAR;
 
 @EventDriven
 @InputRequirement(Requirement.INPUT_FORBIDDEN)
@@ -392,7 +361,7 @@ public class QueryDatabaseTable extends AbstractSessionFactoryProcessor {
                         throw new IllegalArgumentException("No column type found for: " + colName);
                     }
                     // Add a condition for the WHERE clause
-                    whereClauses.add(colName + " > " + getLiteralByType(type, maxValue, preProcessStrategy));
+                    whereClauses.add(colName + " > " + JdbcCommon.getLiteralByType(type, maxValue, preProcessStrategy));
                 }
             }
             if (!whereClauses.isEmpty()) {
@@ -424,41 +393,6 @@ public class QueryDatabaseTable extends AbstractSessionFactoryProcessor {
         return query;
     }
 
-    /**
-     * Returns a SQL literal for the given value based on its type. For example, values of character type need to be enclosed
-     * in single quotes, whereas values of numeric type should not be.
-     *
-     * @param type  The JDBC type for the desired literal
-     * @param value The value to be converted to a SQL literal
-     * @return A String representing the given value as a literal of the given type
-     */
-    protected String getLiteralByType(int type, String value, String preProcessStrategy) {
-        // Format value based on column type. For example, strings and timestamps need to be quoted
-        switch (type) {
-            // For string-represented values, put in single quotes
-            case CHAR:
-            case LONGNVARCHAR:
-            case LONGVARCHAR:
-            case NCHAR:
-            case NVARCHAR:
-            case VARCHAR:
-            case ROWID:
-            case DATE:
-            case TIME:
-                return "'" + value + "'";
-            case TIMESTAMP:
-                // Timestamp literals in Oracle need to be cast with TO_DATE
-                if (SQL_PREPROCESS_STRATEGY_ORACLE.equals(preProcessStrategy)) {
-                    return "to_date('" + value + "', 'yyyy-mm-dd HH24:MI:SS')";
-                } else {
-                    return "'" + value + "'";
-                }
-                // Else leave as is (numeric types, e.g.)
-            default:
-                return value;
-        }
-    }
-
     protected class MaxValueResultSetRowCollector implements JdbcCommon.ResultSetRowCallback {
         String preProcessStrategy;
         Map<String, String> newColMap;
@@ -481,135 +415,14 @@ public class QueryDatabaseTable extends AbstractSessionFactoryProcessor {
                     for (int i = 1; i <= nrOfColumns; i++) {
                         String colName = meta.getColumnName(i).toLowerCase();
                         Integer type = columnTypeMap.get(colName);
-                        // Skip any columns we're not keeping track of or whose value is null
                         if (type == null || resultSet.getObject(i) == null) {
                             continue;
-                        }
-                        String maxValueString = newColMap.get(colName);
-                        switch (type) {
-                            case CHAR:
-                            case LONGNVARCHAR:
-                            case LONGVARCHAR:
-                            case NCHAR:
-                            case NVARCHAR:
-                            case VARCHAR:
-                            case ROWID:
-                                String colStringValue = resultSet.getString(i);
-                                if (maxValueString == null || colStringValue.compareTo(maxValueString) > 0) {
-                                    newColMap.put(colName, colStringValue);
-                                }
-                                break;
-
-                            case INTEGER:
-                            case SMALLINT:
-                            case TINYINT:
-                                Integer colIntValue = resultSet.getInt(i);
-                                Integer maxIntValue = null;
-                                if (maxValueString != null) {
-                                    maxIntValue = Integer.valueOf(maxValueString);
-                                }
-                                if (maxIntValue == null || colIntValue > maxIntValue) {
-                                    newColMap.put(colName, colIntValue.toString());
-                                }
-                                break;
-
-                            case BIGINT:
-                                Long colLongValue = resultSet.getLong(i);
-                                Long maxLongValue = null;
-                                if (maxValueString != null) {
-                                    maxLongValue = Long.valueOf(maxValueString);
-                                }
-                                if (maxLongValue == null || colLongValue > maxLongValue) {
-                                    newColMap.put(colName, colLongValue.toString());
-                                }
-                                break;
-
-                            case FLOAT:
-                            case REAL:
-                            case DOUBLE:
-                                Double colDoubleValue = resultSet.getDouble(i);
-                                Double maxDoubleValue = null;
-                                if (maxValueString != null) {
-                                    maxDoubleValue = Double.valueOf(maxValueString);
-                                }
-                                if (maxDoubleValue == null || colDoubleValue > maxDoubleValue) {
-                                    newColMap.put(colName, colDoubleValue.toString());
-                                }
-                                break;
-
-                            case DECIMAL:
-                            case NUMERIC:
-                                BigDecimal colBigDecimalValue = resultSet.getBigDecimal(i);
-                                BigDecimal maxBigDecimalValue = null;
-                                if (maxValueString != null) {
-                                    DecimalFormat df = new DecimalFormat();
-                                    df.setParseBigDecimal(true);
-                                    maxBigDecimalValue = (BigDecimal) df.parse(maxValueString);
-                                }
-                                if (maxBigDecimalValue == null || colBigDecimalValue.compareTo(maxBigDecimalValue) > 0) {
-                                    newColMap.put(colName, colBigDecimalValue.toString());
-                                }
-                                break;
-
-                            case DATE:
-                                Date rawColDateValue = resultSet.getDate(i);
-                                java.sql.Date colDateValue = new java.sql.Date(rawColDateValue.getTime());
-                                java.sql.Date maxDateValue = null;
-                                if (maxValueString != null) {
-                                    maxDateValue = java.sql.Date.valueOf(maxValueString);
-                                }
-                                if (maxDateValue == null || colDateValue.after(maxDateValue)) {
-                                    newColMap.put(colName, colDateValue.toString());
-                                }
-                                break;
-
-                            case TIME:
-                                Date rawColTimeValue = resultSet.getDate(i);
-                                java.sql.Time colTimeValue = new java.sql.Time(rawColTimeValue.getTime());
-                                java.sql.Time maxTimeValue = null;
-                                if (maxValueString != null) {
-                                    maxTimeValue = java.sql.Time.valueOf(maxValueString);
-                                }
-                                if (maxTimeValue == null || colTimeValue.after(maxTimeValue)) {
-                                    newColMap.put(colName, colTimeValue.toString());
-                                }
-                                break;
-
-                            case TIMESTAMP:
-                                // Oracle timestamp queries must use literals in java.sql.Date format
-                                if (SQL_PREPROCESS_STRATEGY_ORACLE.equals(preProcessStrategy)) {
-                                    Date rawColOracleTimestampValue = resultSet.getDate(i);
-                                    java.sql.Date oracleTimestampValue = new java.sql.Date(rawColOracleTimestampValue.getTime());
-                                    java.sql.Date maxOracleTimestampValue = null;
-                                    if (maxValueString != null) {
-                                        maxOracleTimestampValue = java.sql.Date.valueOf(maxValueString);
-                                    }
-                                    if (maxOracleTimestampValue == null || oracleTimestampValue.after(maxOracleTimestampValue)) {
-                                        newColMap.put(colName, oracleTimestampValue.toString());
-                                    }
-                                } else {
-                                    Timestamp rawColTimestampValue = resultSet.getTimestamp(i);
-                                    java.sql.Timestamp colTimestampValue = new java.sql.Timestamp(rawColTimestampValue.getTime());
-                                    java.sql.Timestamp maxTimestampValue = null;
-                                    if (maxValueString != null) {
-                                        maxTimestampValue = java.sql.Timestamp.valueOf(maxValueString);
-                                    }
-                                    if (maxTimestampValue == null || colTimestampValue.after(maxTimestampValue)) {
-                                        newColMap.put(colName, colTimestampValue.toString());
-                                    }
-                                }
-                                break;
-
-                            case BIT:
-                            case BOOLEAN:
-                            case BINARY:
-                            case VARBINARY:
-                            case LONGVARBINARY:
-                            case ARRAY:
-                            case BLOB:
-                            case CLOB:
-                            default:
-                                throw new IOException("Type " + meta.getColumnTypeName(i) + " is not valid for maintaining maximum value");
+                        } else {
+                            String maxValueString = newColMap.get(colName);
+                            String maxValue = JdbcCommon.getMaxValueFromRow(resultSet, i, type, maxValueString, preProcessStrategy);
+                            if (maxValue != null) {
+                                newColMap.put(colName, maxValue);
+                            }
                         }
                     }
                 }
