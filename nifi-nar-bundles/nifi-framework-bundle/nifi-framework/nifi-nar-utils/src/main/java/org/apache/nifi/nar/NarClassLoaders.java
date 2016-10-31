@@ -16,23 +16,31 @@
  */
 package org.apache.nifi.nar;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import org.apache.nifi.util.FileUtils;
+import org.apache.nifi.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.nifi.nar.NarUnpacker.EXTENSIONS_LIB_DIR;
 
 /**
  * A singleton class used to initialize the extension and framework
@@ -138,7 +146,7 @@ public final class NarClassLoaders {
         if (frameworkWorkingDirContents != null) {
             narWorkingDirContents.addAll(Arrays.asList(frameworkWorkingDirContents));
         }
-        final File[] extensionsWorkingDirContents = extensionsWorkingDir.listFiles();
+        final File[] extensionsWorkingDirContents = extensionsWorkingDir.listFiles((file) -> !file.getName().equals(EXTENSIONS_LIB_DIR));
         if (extensionsWorkingDirContents != null) {
             narWorkingDirContents.addAll(Arrays.asList(extensionsWorkingDirContents));
         }
@@ -231,7 +239,22 @@ public final class NarClassLoaders {
      */
     private static ClassLoader createNarClassLoader(final File narDirectory, final ClassLoader parentClassLoader) throws IOException, ClassNotFoundException {
         logger.debug("Loading NAR file: " + narDirectory.getAbsolutePath());
-        final ClassLoader narClassLoader = new NarClassLoader(narDirectory, parentClassLoader);
+        // Read the dependency manifest and add all URLs to the classloader
+        File nifiDeps = new File(narDirectory, NarUnpacker.DEPENDENCIES_FILENAME);
+        List<URL> urls = new LinkedList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(nifiDeps))) {
+            String url = br.readLine();
+            while (!StringUtils.isEmpty(url)) {
+                try {
+                    urls.add(new URL(url));
+                } catch(MalformedURLException mue) {
+                    logger.error("Couldn't form URL from "+url);
+                }
+                url = br.readLine();
+            }
+        }
+
+        final ClassLoader narClassLoader = new NarClassLoader(narDirectory, urls.toArray(new URL[urls.size()]), parentClassLoader);
         logger.info("Loaded NAR file: " + narDirectory.getAbsolutePath() + " as class loader " + narClassLoader);
         return narClassLoader;
     }

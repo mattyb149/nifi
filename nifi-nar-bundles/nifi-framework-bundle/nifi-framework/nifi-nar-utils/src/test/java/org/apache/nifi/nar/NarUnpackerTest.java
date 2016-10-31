@@ -37,6 +37,8 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.apache.nifi.nar.NarUnpacker.EXTENSIONS_LIB_DIR;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -97,7 +99,7 @@ public class NarUnpackerTest {
         assertTrue(extensionMapping.getAllExtensionNames().contains(
                 "org.apache.nifi.processors.dummy.two"));
         final File extensionsWorkingDir = properties.getExtensionsWorkingDirectory();
-        File[] extensionFiles = extensionsWorkingDir.listFiles();
+        File[] extensionFiles = extensionsWorkingDir.listFiles((file) -> !file.getName().equals(EXTENSIONS_LIB_DIR));
 
         Set<String> expectedNars = new HashSet<>();
         expectedNars.add("dummy-one.nar-unpacked");
@@ -130,7 +132,7 @@ public class NarUnpackerTest {
         final File extensionsWorkingDir = properties.getExtensionsWorkingDirectory();
         File[] extensionFiles = extensionsWorkingDir.listFiles();
 
-        assertEquals(1, extensionFiles.length);
+        assertEquals(2, extensionFiles.length);
         assertEquals("dummy-one.nar-unpacked", extensionFiles[0].getName());
     }
 
@@ -155,7 +157,7 @@ public class NarUnpackerTest {
         final File extensionsWorkingDir = properties.getExtensionsWorkingDirectory();
         File[] extensionFiles = extensionsWorkingDir.listFiles();
 
-        assertEquals(1, extensionFiles.length);
+        assertEquals(2, extensionFiles.length);
         assertEquals("dummy-one.nar-unpacked", extensionFiles[0].getName());
     }
 

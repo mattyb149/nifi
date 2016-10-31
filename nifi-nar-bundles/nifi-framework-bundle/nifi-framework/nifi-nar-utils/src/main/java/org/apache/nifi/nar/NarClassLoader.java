@@ -16,11 +16,15 @@
  */
 package org.apache.nifi.nar;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,7 +165,23 @@ public class NarClassLoader extends URLClassLoader {
      * @throws IOException if an error occurs while loading the NAR.
      */
     public NarClassLoader(final File narWorkingDirectory, final ClassLoader parentClassLoader) throws ClassNotFoundException, IOException {
-        super(new URL[0], parentClassLoader);
+        this(narWorkingDirectory, new URL[0], parentClassLoader);
+    }
+
+    /**
+     * Construct a nar class loader with the specific parent and additional URLs.
+     *
+     * @param narWorkingDirectory directory to explode nar contents to
+     * @param urls a List of URLs to add to this classloader
+     * @param parentClassLoader parent class loader of this nar
+     * @throws IllegalArgumentException if the NAR is missing the Java Services
+     * API file for <tt>FlowFileProcessor</tt> implementations.
+     * @throws ClassNotFoundException if any of the <tt>FlowFileProcessor</tt>
+     * implementations defined by the Java Services API cannot be loaded.
+     * @throws IOException if an error occurs while loading the NAR.
+     */
+    public NarClassLoader(final File narWorkingDirectory, final URL[] urls, final ClassLoader parentClassLoader) throws ClassNotFoundException, IOException {
+        super(urls, parentClassLoader);
         this.narWorkingDirectory = narWorkingDirectory;
 
         // process the classpath

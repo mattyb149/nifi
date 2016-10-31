@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -31,8 +32,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -50,20 +53,21 @@ import org.slf4j.LoggerFactory;
  */
 public final class NarUnpacker {
 
+    public static final String EXTENSIONS_LIB_DIR = "lib";
+    public static String DEPENDENCIES_FILENAME = "nar-deps";
+
     private static final Logger logger = LoggerFactory.getLogger(NarUnpacker.class);
     private static String HASH_FILENAME = "nar-md5sum";
-    private static final FileFilter NAR_FILTER = new FileFilter() {
-        @Override
-        public boolean accept(File pathname) {
-            final String nameToTest = pathname.getName().toLowerCase();
-            return nameToTest.endsWith(".nar") && pathname.isFile();
-        }
+    private static final FileFilter NAR_FILTER = pathname -> {
+        final String nameToTest = pathname.getName().toLowerCase();
+        return nameToTest.endsWith(".nar") && pathname.isFile();
     };
 
     public static ExtensionMapping unpackNars(final NiFiProperties props) {
         final List<Path> narLibraryDirs = props.getNarLibraryDirectories();
         final File frameworkWorkingDir = props.getFrameworkWorkingDirectory();
         final File extensionsWorkingDir = props.getExtensionsWorkingDirectory();
+        final File extensionsLibDir = new File(extensionsWorkingDir,EXTENSIONS_LIB_DIR);
         final File docsWorkingDir = props.getComponentDocumentationWorkingDirectory();
 
         try {
@@ -74,6 +78,7 @@ public final class NarUnpacker {
             // make sure the nar directories are there and accessible
             FileUtils.ensureDirectoryExistAndCanAccess(frameworkWorkingDir);
             FileUtils.ensureDirectoryExistAndCanAccess(extensionsWorkingDir);
+            FileUtils.ensureDirectoryExistAndCanAccess(extensionsLibDir);
             FileUtils.ensureDirectoryExistAndCanAccess(docsWorkingDir);
 
             for (Path narLibraryDir : narLibraryDirs) {
@@ -107,9 +112,9 @@ public final class NarUnpacker {
                                         "Multiple framework NARs discovered. Only one framework is permitted.");
                             }
 
-                            unpackedFramework = unpackNar(narFile, frameworkWorkingDir);
+                            unpackedFramework = unpackNar(narFile, frameworkWorkingDir, true);
                         } else {
-                            unpackedExtensions.add(unpackNar(narFile, extensionsWorkingDir));
+                            unpackedExtensions.add(unpackNar(narFile, extensionsWorkingDir, false));
                         }
                     }
                 }
@@ -135,7 +140,7 @@ public final class NarUnpacker {
                 }
 
                 // ensure no old extensions are present
-                final File[] extensionsWorkingDirContents = extensionsWorkingDir.listFiles();
+                final File[] extensionsWorkingDirContents = extensionsWorkingDir.listFiles((file) -> !file.getName().equals(EXTENSIONS_LIB_DIR));
                 if (extensionsWorkingDirContents != null) {
                     for (final File unpackedNar : extensionsWorkingDirContents) {
                         if (!unpackedExtensions.contains(unpackedNar)) {
@@ -170,7 +175,7 @@ public final class NarUnpacker {
     }
 
     private static void mapExtensions(final File workingDirectory, final File docsDirectory,
-            final ExtensionMapping mapping) throws IOException {
+                                      final ExtensionMapping mapping) throws IOException {
         final File[] directoryContents = workingDirectory.listFiles();
         if (directoryContents != null) {
             for (final File file : directoryContents) {
@@ -186,21 +191,18 @@ public final class NarUnpacker {
     /**
      * Unpacks the specified nar into the specified base working directory.
      *
-     * @param nar
-     *            the nar to unpack
-     * @param baseWorkingDirectory
-     *            the directory to unpack to
+     * @param nar                  the nar to unpack
+     * @param baseWorkingDirectory the directory to unpack to
      * @return the directory to the unpacked NAR
-     * @throws IOException
-     *             if unable to explode nar
+     * @throws IOException if unable to explode nar
      */
-    private static File unpackNar(final File nar, final File baseWorkingDirectory)
+    private static File unpackNar(final File nar, final File baseWorkingDirectory, final boolean isFrameworkNar)
             throws IOException {
         final File narWorkingDirectory = new File(baseWorkingDirectory, nar.getName() + "-unpacked");
 
         // if the working directory doesn't exist, unpack the nar
         if (!narWorkingDirectory.exists()) {
-            unpack(nar, narWorkingDirectory, calculateMd5sum(nar));
+            unpack(nar, baseWorkingDirectory, narWorkingDirectory, calculateMd5sum(nar), isFrameworkNar);
         } else {
             // the working directory does exist. Run MD5 sum against the nar
             // file and check if the nar has changed since it was deployed.
@@ -208,14 +210,14 @@ public final class NarUnpacker {
             final File workingHashFile = new File(narWorkingDirectory, HASH_FILENAME);
             if (!workingHashFile.exists()) {
                 FileUtils.deleteFile(narWorkingDirectory, true);
-                unpack(nar, narWorkingDirectory, narMd5);
+                unpack(nar, baseWorkingDirectory, narWorkingDirectory, narMd5, isFrameworkNar);
             } else {
                 final byte[] hashFileContents = Files.readAllBytes(workingHashFile.toPath());
                 if (!Arrays.equals(hashFileContents, narMd5)) {
                     logger.info("Contents of nar {} have changed. Reloading.",
-                            new Object[] { nar.getAbsolutePath() });
+                            new Object[]{nar.getAbsolutePath()});
                     FileUtils.deleteFile(narWorkingDirectory, true);
-                    unpack(nar, narWorkingDirectory, narMd5);
+                    unpack(nar, baseWorkingDirectory, narWorkingDirectory, narMd5, isFrameworkNar);
                 }
             }
         }
@@ -227,20 +229,33 @@ public final class NarUnpacker {
      * Unpacks the NAR to the specified directory. Creates a checksum file that
      * used to determine if future expansion is necessary.
      *
-     * @param workingDirectory
-     *            the root directory to which the NAR should be unpacked.
-     * @throws IOException
-     *             if the NAR could not be unpacked.
+     * @param workingDirectory the root directory to which the NAR should be unpacked.
+     * @throws IOException if the NAR could not be unpacked.
      */
-    private static void unpack(final File nar, final File workingDirectory, final byte[] hash)
+    private static void unpack(final File nar, final File baseWorkingDirectory, final File workingDirectory, final byte[] hash, final boolean isFrameworkNar)
             throws IOException {
 
-        try (JarFile jarFile = new JarFile(nar)) {
+        FileUtils.ensureDirectoryExistAndCanAccess(workingDirectory);
+        final File dependenciesFile = new File(workingDirectory, DEPENDENCIES_FILENAME);
+        if(!dependenciesFile.exists()) {
+            if(!dependenciesFile.createNewFile()) {
+                throw new IOException("Could not create a dependencies list for "+nar.getName());
+            }
+        }
+
+        try (final PrintWriter depsOut = new PrintWriter(new FileOutputStream(dependenciesFile));
+             JarFile jarFile = new JarFile(nar)) {
             Enumeration<JarEntry> jarEntries = jarFile.entries();
             while (jarEntries.hasMoreElements()) {
                 JarEntry jarEntry = jarEntries.nextElement();
                 String name = jarEntry.getName();
-                File f = new File(workingDirectory, name);
+                File f;
+                if (!isFrameworkNar && name.endsWith(".jar")) {
+                    f = new File(new File(baseWorkingDirectory,EXTENSIONS_LIB_DIR), new File(baseWorkingDirectory, name).getName());
+                    depsOut.println(f.toURI().toURL());
+                } else {
+                    f = new File(workingDirectory, name);
+                }
                 if (jarEntry.isDirectory()) {
                     FileUtils.ensureDirectoryExistAndCanAccess(f);
                 } else {
@@ -256,7 +271,7 @@ public final class NarUnpacker {
     }
 
     private static void unpackDocumentation(final File jar, final File docsDirectory,
-            final ExtensionMapping extensionMapping) throws IOException {
+                                            final ExtensionMapping extensionMapping) throws IOException {
         // determine the components that may have documentation
         determineDocumentedNiFiComponents(jar, extensionMapping);
 
@@ -267,7 +282,7 @@ public final class NarUnpacker {
 
                 // go through each entry in this jar
                 for (final Enumeration<JarEntry> jarEnumeration = jarFile.entries(); jarEnumeration
-                        .hasMoreElements();) {
+                        .hasMoreElements(); ) {
                     final JarEntry jarEntry = jarEnumeration.nextElement();
 
                     // if this entry is documentation for this component
@@ -298,7 +313,7 @@ public final class NarUnpacker {
     }
 
     private static void determineDocumentedNiFiComponents(final File jar,
-            final ExtensionMapping extensionMapping) throws IOException {
+                                                          final ExtensionMapping extensionMapping) throws IOException {
         try (final JarFile jarFile = new JarFile(jar)) {
             final JarEntry processorEntry = jarFile
                     .getJarEntry("META-INF/services/org.apache.nifi.processor.Processor");
@@ -317,7 +332,7 @@ public final class NarUnpacker {
     }
 
     private static List<String> determineDocumentedNiFiComponents(final JarFile jarFile,
-            final JarEntry jarEntry) throws IOException {
+                                                                  final JarEntry jarEntry) throws IOException {
         final List<String> componentNames = new ArrayList<>();
 
         if (jarEntry == null) {
@@ -325,8 +340,8 @@ public final class NarUnpacker {
         }
 
         try (final InputStream entryInputStream = jarFile.getInputStream(jarEntry);
-                final BufferedReader reader = new BufferedReader(new InputStreamReader(
-                        entryInputStream))) {
+             final BufferedReader reader = new BufferedReader(new InputStreamReader(
+                     entryInputStream))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 final String trimmedLine = line.trim();
@@ -346,16 +361,13 @@ public final class NarUnpacker {
      * Creates the specified file, whose contents will come from the
      * <tt>InputStream</tt>.
      *
-     * @param inputStream
-     *            the contents of the file to create.
-     * @param file
-     *            the file to create.
-     * @throws IOException
-     *             if the file could not be created.
+     * @param inputStream the contents of the file to create.
+     * @param file        the file to create.
+     * @throws IOException if the file could not be created.
      */
     private static void makeFile(final InputStream inputStream, final File file) throws IOException {
         try (final InputStream in = inputStream;
-                final FileOutputStream fos = new FileOutputStream(file)) {
+             final FileOutputStream fos = new FileOutputStream(file)) {
             byte[] bytes = new byte[65536];
             int numRead;
             while ((numRead = in.read(bytes)) != -1) {
@@ -367,11 +379,9 @@ public final class NarUnpacker {
     /**
      * Calculates an md5 sum of the specified file.
      *
-     * @param file
-     *            to calculate the md5sum of
+     * @param file to calculate the md5sum of
      * @return the md5sum bytes
-     * @throws IOException
-     *             if cannot read file
+     * @throws IOException if cannot read file
      */
     private static byte[] calculateMd5sum(final File file) throws IOException {
         try (final FileInputStream inputStream = new FileInputStream(file)) {
