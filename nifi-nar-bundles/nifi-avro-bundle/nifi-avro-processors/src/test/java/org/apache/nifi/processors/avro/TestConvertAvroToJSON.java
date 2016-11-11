@@ -18,7 +18,6 @@ package org.apache.nifi.processors.avro;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;

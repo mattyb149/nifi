@@ -41,6 +41,7 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.io.JsonEncoder;
+import org.apache.avro.io.StandardJsonEncoder;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
 import org.apache.nifi.annotation.behavior.SideEffectFree;
@@ -181,8 +182,7 @@ public class ConvertAvroToJSON extends AbstractProcessor {
                             if (useContainer && wrapSingleRecord) {
                                 out.write('[');
                             }
-                            byte[] outputBytes = (currRecord == null) ? EMPTY_JSON_OBJECT
-                                    : (useAvroJson ? toAvroJSON(schema, currRecord) : genericData.toString(currRecord).getBytes(StandardCharsets.UTF_8));
+                            byte[] outputBytes = (currRecord == null) ? EMPTY_JSON_OBJECT : toJSON(schema, currRecord, useAvroJson);
                             out.write(outputBytes);
                             if (useContainer && wrapSingleRecord) {
                                 out.write(']');
@@ -198,8 +198,7 @@ public class ConvertAvroToJSON extends AbstractProcessor {
                                 if (stream.hasNext() && useContainer || wrapSingleRecord) {
                                     out.write('[');
                                 }
-                                byte[] outputBytes = (currRecord == null) ? EMPTY_JSON_OBJECT
-                                        : (useAvroJson ? toAvroJSON(stream.getSchema(), currRecord) : genericData.toString(currRecord).getBytes(StandardCharsets.UTF_8));
+                                byte[] outputBytes = (currRecord == null) ? EMPTY_JSON_OBJECT : toJSON(stream.getSchema(), currRecord, useAvroJson);
                                 out.write(outputBytes);
                                 while (stream.hasNext()) {
                                     if (useContainer) {
@@ -230,10 +229,10 @@ public class ConvertAvroToJSON extends AbstractProcessor {
         session.transfer(flowFile, REL_SUCCESS);
     }
 
-    private byte[] toAvroJSON(Schema schemaToUse, GenericRecord datum) throws IOException {
+    private byte[] toJSON(Schema schemaToUse, GenericRecord datum, boolean useAvroJson) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        DatumWriter<GenericRecord> writer = new GenericDatumWriter<GenericRecord>(schemaToUse);
-        JsonEncoder encoder = EncoderFactory.get().jsonEncoder(schemaToUse, bos);
+        DatumWriter<GenericRecord> writer = new GenericDatumWriter<>(schemaToUse);
+        JsonEncoder encoder = useAvroJson ? EncoderFactory.get().jsonEncoder(schemaToUse, bos): new StandardJsonEncoder(schemaToUse, bos);
         writer.write(datum, encoder);
         encoder.flush();
         bos.flush();
