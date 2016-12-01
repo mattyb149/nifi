@@ -16,8 +16,6 @@
  */
 package org.apache.nifi.processors.standard;
 
-import io.advantageous.boon.json.JsonParser;
-import io.advantageous.boon.json.JsonParserFactory;
 import org.apache.nifi.annotation.behavior.DynamicProperty;
 import org.apache.nifi.annotation.behavior.EventDriven;
 import org.apache.nifi.annotation.behavior.InputRequirement;
@@ -43,6 +41,9 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.stream.io.BufferedInputStream;
 import org.apache.nifi.stream.io.BufferedOutputStream;
 import org.apache.nifi.util.StringUtils;
+import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.node.ArrayNode;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -231,12 +232,13 @@ public class ExtractJsonFields extends AbstractProcessor {
 
         final String pathNotFound = processContext.getProperty(PATH_NOT_FOUND).getValue();
 
-        Map fieldMap;
+        Map<String, JsonNode> fieldMap = new HashMap<>();
 
         try {
-            JsonParser parser = new JsonParserFactory().create();
+            final ObjectMapper mapper = new ObjectMapper();
             // Assume a top-level JSON object (vs an array)
-            fieldMap = (Map) parser.parse(new BufferedInputStream(processSession.read(flowFile)));
+            JsonNode rootNode = mapper.readTree(new BufferedInputStream(processSession.read(flowFile)));
+            rootNode.getFields().forEachRemaining((e) -> fieldMap.put(e.getKey(), e.getValue()));
 
         } catch (Exception e) {
             logger.error("FlowFile {} did not have valid JSON content.", new Object[]{flowFile}, e);
@@ -256,21 +258,22 @@ public class ExtractJsonFields extends AbstractProcessor {
 
             Object o = fieldMap.get(jsonPathExp.getFieldName());
             if (o != null) {
-                if (o instanceof List) {
+                if (o instanceof ArrayNode) {
                     if (index == null) {
                         logger.error("Unable to return a scalar value for the expression {} for FlowFile {}, the field is an array but the expression has no index. Transferring to {}.",
                                 new Object[]{jsonPath, flowFile.getId(), REL_FAILURE.getName()});
                         processSession.transfer(flowFile, REL_FAILURE);
                         return;
                     } else {
-                        List a = ((List) o);
+                        List<String> a = new ArrayList<>();
+                        ((ArrayNode) o).getElements().forEachRemaining((i) -> a.add(i.toString()));
                         if (index >= a.size() || index < 0) {
                             logger.error("Unable to return a scalar value for the expression {} for FlowFile {}, the array index is out of bounds. Transferring to {}.",
                                     new Object[]{jsonPath, flowFile.getId(), REL_FAILURE.getName()});
                             processSession.transfer(flowFile, REL_FAILURE);
                             return;
                         } else {
-                            jsonPathResult = a.get(index).toString();
+                            jsonPathResult = a.get(index);
                         }
                     }
                 } else {
