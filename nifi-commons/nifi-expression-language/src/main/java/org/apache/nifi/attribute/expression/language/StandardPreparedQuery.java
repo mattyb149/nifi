@@ -24,7 +24,7 @@ import java.util.Map;
 import org.apache.nifi.expression.AttributeValueDecorator;
 import org.apache.nifi.processor.exception.ProcessException;
 
-import org.antlr.runtime.tree.Tree;
+import org.antlr.v4.runtime.tree.Tree;
 
 public class StandardPreparedQuery implements PreparedQuery {
 
