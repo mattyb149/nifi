@@ -79,6 +79,9 @@ public class ProcessorDocumentationWriterTest {
         assertNotContains(results, "No Tags provided.");
         assertNotContains(results, "Additional Details...");
 
+        // input requirement
+        assertContains(results, "This component does not allow an incoming relationship.");
+
         // verify the right OnRemoved and OnShutdown methods were called
         Assert.assertEquals(0, processor.getOnRemovedArgs());
         Assert.assertEquals(0, processor.getOnRemovedNoArgs());
@@ -120,6 +123,9 @@ public class ProcessorDocumentationWriterTest {
 
         // state management
         assertContains(results, "This component is not restricted.");
+
+        // input requirement
+        assertNotContains(results, "Input requirement:");
     }
 
     @Test
