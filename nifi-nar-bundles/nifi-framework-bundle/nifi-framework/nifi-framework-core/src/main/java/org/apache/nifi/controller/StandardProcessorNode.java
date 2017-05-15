@@ -249,9 +249,6 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
      */
     @Override
     public synchronized void setComments(final String comments) {
-        if (isRunning()) {
-            throw new IllegalStateException("Cannot modify Processor configuration while the Processor is running");
-        }
         this.comments.set(CharacterFilterUtils.filterInvalidXmlCharacters(comments));
     }
 
@@ -398,9 +395,6 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
 
     @Override
     public synchronized void setName(final String name) {
-        if (isRunning()) {
-            throw new IllegalStateException("Cannot modify Processor configuration while the Processor is running");
-        }
         super.setName(name);
     }
 
