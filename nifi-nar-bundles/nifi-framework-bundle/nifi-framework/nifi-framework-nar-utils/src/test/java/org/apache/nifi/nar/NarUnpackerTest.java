@@ -16,7 +16,14 @@
  */
 package org.apache.nifi.nar;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.nifi.util.NiFiProperties;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.structure.Direction;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -33,13 +40,17 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class NarUnpackerTest {
 
@@ -79,7 +90,10 @@ public class NarUnpackerTest {
     }
 
     @Test
-    public void testUnpackNars() {
+    public void testUnpackNars() throws IOException {
+
+        // Need a clean working directory for this test, to build the dependency graph from scratch
+        FileUtils.deleteDirectory(new File("./target/work"));
 
         NiFiProperties properties = loadSpecifiedProperties("/NarUnpacker/conf/nifi.properties", Collections.EMPTY_MAP);
 
@@ -88,7 +102,8 @@ public class NarUnpackerTest {
         assertEquals("./target/NarUnpacker/lib2/",
                 properties.getProperty("nifi.nar.library.directory.alt"));
 
-        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties));
+        final Graph graph = TinkerGraph.open();
+        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties), graph);
 
         assertEquals(2, extensionMapping.getAllExtensionNames().size());
 
@@ -105,6 +120,36 @@ public class NarUnpackerTest {
         for (File extensionFile : extensionFiles) {
             Assert.assertTrue(expectedNars.contains(extensionFile.getName()));
         }
+
+        // Assert graph elements are present
+        try {
+            GraphTraversalSource g = graph.traversal();
+            Vertex v1 = g.V().has("name", "dummy-one.nar").next();
+            assertNotNull(v1);
+            assertEquals("nar", v1.property("type").value());
+
+            Vertex v2 = g.V().has("name", "dummy-two.nar").next();
+            assertNotNull(v2);
+            assertEquals("nar", v2.property("type").value());
+
+            Vertex v3 = g.V().has("name", "nifi-dummy-1.jar").next();
+            assertNotNull(v3);
+            assertEquals("jar", v3.property("type").value());
+            assertEquals("./target/work/nar/extensions/dummy-one.nar-unpacked/META-INF/bundled-dependencies/nifi-dummy-1.jar", v3.property("location").value());
+
+            Vertex v4 = g.V().has("name", "nifi-dummy-2.jar").next();
+            assertNotNull(v4);
+            assertEquals("jar", v4.property("type").value());
+            assertEquals("./target/work/nar/extensions/dummy-two.nar-unpacked/META-INF/bundled-dependencies/nifi-dummy-2.jar", v4.property("location").value());
+
+            Iterator<Edge> v1Edges = v1.edges(Direction.OUT, "loads");
+            assertTrue(v1Edges.hasNext());
+            Edge e = v1Edges.next();
+            assertEquals(v3, e.inVertex());
+
+        } catch (NoSuchElementException nsee) {
+            fail("No exception expected");
+        }
     }
 
     @Test
@@ -119,7 +164,7 @@ public class NarUnpackerTest {
         others.put("nifi.nar.library.directory.alt", emptyDir.toString());
         NiFiProperties properties = loadSpecifiedProperties("/NarUnpacker/conf/nifi.properties", others);
 
-        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties));
+        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties), null);
 
         assertEquals(1, extensionMapping.getAllExtensionNames().size());
         assertTrue(extensionMapping.getAllExtensionNames().keySet().contains("org.apache.nifi.processors.dummy.one"));
@@ -142,7 +187,7 @@ public class NarUnpackerTest {
         others.put("nifi.nar.library.directory.alt", nonExistantDir.toString());
         NiFiProperties properties = loadSpecifiedProperties("/NarUnpacker/conf/nifi.properties", others);
 
-        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties));
+        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties), null);
 
         assertTrue(extensionMapping.getAllExtensionNames().keySet().contains("org.apache.nifi.processors.dummy.one"));
 
@@ -166,7 +211,7 @@ public class NarUnpackerTest {
         others.put("nifi.nar.library.directory.alt", nonDir.toString());
         NiFiProperties properties = loadSpecifiedProperties("/NarUnpacker/conf/nifi.properties", others);
 
-        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties));
+        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, SystemBundle.create(properties), null);
 
         assertNull(extensionMapping);
     }

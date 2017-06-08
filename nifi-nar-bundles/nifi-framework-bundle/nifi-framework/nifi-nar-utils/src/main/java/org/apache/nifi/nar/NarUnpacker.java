@@ -21,6 +21,9 @@ import org.apache.nifi.bundle.BundleCoordinate;
 import org.apache.nifi.util.FileUtils;
 import org.apache.nifi.util.NiFiProperties;
 import org.apache.nifi.util.StringUtils;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +46,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -64,7 +68,7 @@ public final class NarUnpacker {
         }
     };
 
-    public static ExtensionMapping unpackNars(final NiFiProperties props, final Bundle systemBundle) {
+    public static ExtensionMapping unpackNars(final NiFiProperties props, final Bundle systemBundle, final Graph graph) {
         final List<Path> narLibraryDirs = props.getNarLibraryDirectories();
         final File frameworkWorkingDir = props.getFrameworkWorkingDirectory();
         final File extensionsWorkingDir = props.getExtensionsWorkingDirectory();
@@ -111,6 +115,21 @@ public final class NarUnpacker {
                         final String narId = attributes.getValue(NarManifestEntry.NAR_ID.getManifestName());
                         final String version = attributes.getValue(NarManifestEntry.NAR_VERSION.getManifestName());
 
+                        if (graph != null) {
+                            // Create NAR entry in graph if it does not exist
+                            final GraphTraversalSource g = graph.traversal();
+                            try {
+                                g.V().has("name", nar.getName()).next();
+                            } catch (NoSuchElementException nsee) {
+                                // No vertex found, so add it
+                                graph.addVertex("name", narFile.getName(),
+                                        "type", "nar",
+                                        "groupId", groupId == null ? "" : groupId,
+                                        "narId", narId == null ? "" : narId,
+                                        "version", version == null ? "" : version);
+                            }
+                        }
+
                         // determine if this is the framework
                         if (NarClassLoaders.FRAMEWORK_NAR_ID.equals(narId)) {
                             if (unpackedFramework != null) {
@@ -118,9 +137,9 @@ public final class NarUnpacker {
                             }
 
                             // unpack the framework nar
-                            unpackedFramework = unpackNar(narFile, frameworkWorkingDir);
+                            unpackedFramework = unpackNar(narFile, frameworkWorkingDir, graph);
                         } else {
-                            final File unpackedExtension = unpackNar(narFile, extensionsWorkingDir);
+                            final File unpackedExtension = unpackNar(narFile, extensionsWorkingDir, graph);
 
                             // record the current bundle
                             unpackedNars.put(unpackedExtension, new BundleCoordinate(groupId, narId, version));
@@ -213,17 +232,17 @@ public final class NarUnpacker {
     /**
      * Unpacks the specified nar into the specified base working directory.
      *
-     * @param nar the nar to unpack
+     * @param nar                  the nar to unpack
      * @param baseWorkingDirectory the directory to unpack to
      * @return the directory to the unpacked NAR
      * @throws IOException if unable to explode nar
      */
-    private static File unpackNar(final File nar, final File baseWorkingDirectory) throws IOException {
+    private static File unpackNar(final File nar, final File baseWorkingDirectory, Graph graph) throws IOException {
         final File narWorkingDirectory = new File(baseWorkingDirectory, nar.getName() + "-unpacked");
 
         // if the working directory doesn't exist, unpack the nar
         if (!narWorkingDirectory.exists()) {
-            unpack(nar, narWorkingDirectory, calculateMd5sum(nar));
+            unpack(nar, narWorkingDirectory, calculateMd5sum(nar), graph);
         } else {
             // the working directory does exist. Run MD5 sum against the nar
             // file and check if the nar has changed since it was deployed.
@@ -231,17 +250,51 @@ public final class NarUnpacker {
             final File workingHashFile = new File(narWorkingDirectory, HASH_FILENAME);
             if (!workingHashFile.exists()) {
                 FileUtils.deleteFile(narWorkingDirectory, true);
-                unpack(nar, narWorkingDirectory, narMd5);
+                unpack(nar, narWorkingDirectory, narMd5, graph);
             } else {
                 final byte[] hashFileContents = Files.readAllBytes(workingHashFile.toPath());
                 if (!Arrays.equals(hashFileContents, narMd5)) {
-                    logger.info("Contents of nar {} have changed. Reloading.", new Object[] { nar.getAbsolutePath() });
+                    logger.info("Contents of nar {} have changed. Reloading.", new Object[]{nar.getAbsolutePath()});
                     FileUtils.deleteFile(narWorkingDirectory, true);
-                    unpack(nar, narWorkingDirectory, narMd5);
+                    unpack(nar, narWorkingDirectory, narMd5, graph);
                 }
             }
         }
 
+        // Now that the NAR is unpacked, add its dependencies to the dependency graph (if supplied)
+        if (graph != null) {
+            Vertex narVertex;
+            GraphTraversalSource g = graph.traversal();
+            try {
+                narVertex = g.V().has("name", nar.getName()).next();
+            } catch (NoSuchElementException nsee) {
+                throw new IOException("Could not find NAR vertex in dependency graph, this usually indicates a bug in the software");
+            }
+
+            File dependencies = new File(narWorkingDirectory, "META-INF/bundled-dependencies");
+            if (!dependencies.isDirectory()) {
+                logger.warn(narWorkingDirectory + " does not contain META-INF/bundled-dependencies!");
+            }
+
+            File[] jarFiles = dependencies.listFiles(file -> file.getName().toLowerCase().endsWith(".jar") && !file.isDirectory());
+            if (jarFiles != null) {
+                Arrays.stream(jarFiles).forEach((dependency) -> {
+                    // Create JAR entry in graph if it does not exist
+                    String jarName = dependency.getName();
+                    Vertex jarVertex;
+                    try {
+                        jarVertex = g.V().has("name", jarName).next();
+                    } catch (NoSuchElementException nsee) {
+                        jarVertex = graph.addVertex("name", jarName,
+                                "type", "jar",
+                                "location", dependency.getPath());
+                    }
+                    // Add "loads" dependency from NAR -> JAR
+                    narVertex.addEdge("loads", jarVertex);
+
+                });
+            }
+        }
         return narWorkingDirectory;
     }
 
@@ -252,7 +305,7 @@ public final class NarUnpacker {
      * @param workingDirectory the root directory to which the NAR should be unpacked.
      * @throws IOException if the NAR could not be unpacked.
      */
-    private static void unpack(final File nar, final File workingDirectory, final byte[] hash) throws IOException {
+    private static void unpack(final File nar, final File workingDirectory, final byte[] hash, Graph graph) throws IOException {
 
         try (JarFile jarFile = new JarFile(nar)) {
             Enumeration<JarEntry> jarEntries = jarFile.entries();
@@ -291,7 +344,7 @@ public final class NarUnpacker {
                 final String entryName = "docs/" + componentName;
 
                 // go through each entry in this jar
-                for (final Enumeration<JarEntry> jarEnumeration = jarFile.entries(); jarEnumeration.hasMoreElements();) {
+                for (final Enumeration<JarEntry> jarEnumeration = jarFile.entries(); jarEnumeration.hasMoreElements(); ) {
                     final JarEntry jarEntry = jarEnumeration.nextElement();
 
                     // if this entry is documentation for this component
@@ -331,7 +384,7 @@ public final class NarUnpacker {
             final JarEntry reportingTaskEntry = jarFile.getJarEntry("META-INF/services/org.apache.nifi.reporting.ReportingTask");
             final JarEntry controllerServiceEntry = jarFile.getJarEntry("META-INF/services/org.apache.nifi.controller.ControllerService");
 
-            if (processorEntry==null && reportingTaskEntry==null && controllerServiceEntry==null) {
+            if (processorEntry == null && reportingTaskEntry == null && controllerServiceEntry == null) {
                 return mapping;
             }
 
@@ -350,7 +403,7 @@ public final class NarUnpacker {
         }
 
         try (final InputStream entryInputStream = jarFile.getInputStream(jarEntry);
-                final BufferedReader reader = new BufferedReader(new InputStreamReader(entryInputStream))) {
+             final BufferedReader reader = new BufferedReader(new InputStreamReader(entryInputStream))) {
 
             String line;
             while ((line = reader.readLine()) != null) {
@@ -370,16 +423,13 @@ public final class NarUnpacker {
      * Creates the specified file, whose contents will come from the
      * <tt>InputStream</tt>.
      *
-     * @param inputStream
-     *            the contents of the file to create.
-     * @param file
-     *            the file to create.
-     * @throws IOException
-     *             if the file could not be created.
+     * @param inputStream the contents of the file to create.
+     * @param file        the file to create.
+     * @throws IOException if the file could not be created.
      */
     private static void makeFile(final InputStream inputStream, final File file) throws IOException {
         try (final InputStream in = inputStream;
-                final FileOutputStream fos = new FileOutputStream(file)) {
+             final FileOutputStream fos = new FileOutputStream(file)) {
             byte[] bytes = new byte[65536];
             int numRead;
             while ((numRead = in.read(bytes)) != -1) {
@@ -391,11 +441,9 @@ public final class NarUnpacker {
     /**
      * Calculates an md5 sum of the specified file.
      *
-     * @param file
-     *            to calculate the md5sum of
+     * @param file to calculate the md5sum of
      * @return the md5sum bytes
-     * @throws IOException
-     *             if cannot read file
+     * @throws IOException if cannot read file
      */
     private static byte[] calculateMd5sum(final File file) throws IOException {
         try (final FileInputStream inputStream = new FileInputStream(file)) {

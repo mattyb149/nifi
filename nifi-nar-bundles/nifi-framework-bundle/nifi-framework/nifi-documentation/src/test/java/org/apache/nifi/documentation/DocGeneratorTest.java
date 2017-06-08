@@ -49,7 +49,7 @@ public class DocGeneratorTest {
                 temporaryFolder.getRoot().getAbsolutePath());
 
         final Bundle systemBundle = SystemBundle.create(properties);
-        final ExtensionMapping mapping = NarUnpacker.unpackNars(properties, systemBundle);
+        final ExtensionMapping mapping = NarUnpacker.unpackNars(properties, systemBundle, null);
 
         NarClassLoaders.getInstance().init(properties.getFrameworkWorkingDirectory(), properties.getExtensionsWorkingDirectory());
 

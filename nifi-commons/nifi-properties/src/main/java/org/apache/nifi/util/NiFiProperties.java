@@ -77,6 +77,7 @@ public abstract class NiFiProperties {
     public static final String PERSISTENT_STATE_DIRECTORY = "nifi.persistent.state.directory";
     public static final String BORED_YIELD_DURATION = "nifi.bored.yield.duration";
     public static final String PROCESSOR_SCHEDULING_TIMEOUT = "nifi.processor.scheduling.timeout";
+    public static final String USE_OPTIMIZED_CLASSLOADING = "nifi.optimize.classloaders";
 
     // content repository properties
     public static final String REPOSITORY_CONTENT_PREFIX = "nifi.content.repository.directory.";
@@ -236,6 +237,7 @@ public abstract class NiFiProperties {
     public static final String DEFAULT_FLOW_CONFIGURATION_ARCHIVE_ENABLED = "true";
     public static final String DEFAULT_FLOW_CONFIGURATION_ARCHIVE_MAX_TIME = "30 days";
     public static final String DEFAULT_FLOW_CONFIGURATION_ARCHIVE_MAX_STORAGE = "500 MB";
+    public static final String DEFAULT_USE_OPTIMIZED_CLASSLOADING = "true";
 
     // cluster common defaults
     public static final String DEFAULT_CLUSTER_PROTOCOL_HEARTBEAT_INTERVAL = "5 sec";
@@ -1111,6 +1113,10 @@ public abstract class NiFiProperties {
         return getPropertyKeys().stream().filter(k ->
                 k.startsWith(PROVENANCE_REPO_ENCRYPTION_KEY_ID + ".") || k.equalsIgnoreCase(PROVENANCE_REPO_ENCRYPTION_KEY)
         ).collect(Collectors.toList());
+    }
+
+    public boolean isUseOptimizedClassloading() {
+        return Boolean.parseBoolean(getProperty(USE_OPTIMIZED_CLASSLOADING, DEFAULT_USE_OPTIMIZED_CLASSLOADING));
     }
 
     /**

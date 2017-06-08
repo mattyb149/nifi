@@ -23,6 +23,13 @@ import org.apache.nifi.nar.NarUnpacker;
 import org.apache.nifi.nar.SystemBundle;
 import org.apache.nifi.util.FileUtils;
 import org.apache.nifi.util.NiFiProperties;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.io.IoCore;
+import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -42,23 +49,37 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.TreeMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.and;
+import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.inE;
+import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out;
+import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.values;
 
 public class NiFi {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NiFi.class);
     private static final String KEY_FILE_FLAG = "-K";
+    private static final long NAR_DEPENDENCY_THRESHOLD = 4;
     private final NiFiServer nifiServer;
     private final BootstrapListener bootstrapListener;
 
@@ -130,8 +151,17 @@ public class NiFi {
 
         final Bundle systemBundle = SystemBundle.create(properties);
 
+        // If optimizing the classloader chains, create a dependency graph to be hydrated by the NarUnpacker et al.
+        boolean useOptimizedClassloading = properties.isUseOptimizedClassloading();
+        Graph graph = useOptimizedClassloading ? TinkerGraph.open() : null;
+
         // expand the nars
-        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, systemBundle);
+        final ExtensionMapping extensionMapping = NarUnpacker.unpackNars(properties, systemBundle, graph);
+
+        // create an optimized classloader-chain subgraph for use when creating NarClassLoaders
+        if (graph != null) {
+            createClassloaderChainSubgraph(graph);
+        }
 
         // load the extensions classloaders
         NarClassLoaders.getInstance().init(properties.getFrameworkWorkingDirectory(), properties.getExtensionsWorkingDirectory());
@@ -320,9 +350,9 @@ public class NiFi {
         if (null == key) {
             return "";
         } else if (!isHexKeyValid(key)) {
-          throw new IllegalArgumentException("The key was not provided in valid hex format and of the correct length");
+            throw new IllegalArgumentException("The key was not provided in valid hex format and of the correct length");
         } else {
-          return key;
+            return key;
         }
     }
 
@@ -335,38 +365,38 @@ public class NiFi {
             throw new IllegalArgumentException("The bootstrap process provided the " + KEY_FILE_FLAG + " flag but no key");
         }
         try {
-          String passwordfile_path = parsedArgs.get(i + 1);
-          // Slurp in the contents of the file:
-          byte[] encoded = Files.readAllBytes(Paths.get(passwordfile_path));
-          key = new String(encoded,StandardCharsets.UTF_8);
-          if (0 == key.length())
-            throw new IllegalArgumentException("Key in keyfile " + passwordfile_path + " yielded an empty key");
+            String passwordfile_path = parsedArgs.get(i + 1);
+            // Slurp in the contents of the file:
+            byte[] encoded = Files.readAllBytes(Paths.get(passwordfile_path));
+            key = new String(encoded, StandardCharsets.UTF_8);
+            if (0 == key.length())
+                throw new IllegalArgumentException("Key in keyfile " + passwordfile_path + " yielded an empty key");
 
-          LOGGER.info("Now overwriting file in "+passwordfile_path);
+            LOGGER.info("Now overwriting file in " + passwordfile_path);
 
-          // Overwrite the contents of the file (to avoid littering file system
-          // unlinked with key material):
-          File password_file = new File(passwordfile_path);
-          FileWriter overwriter = new FileWriter(password_file,false);
+            // Overwrite the contents of the file (to avoid littering file system
+            // unlinked with key material):
+            File password_file = new File(passwordfile_path);
+            FileWriter overwriter = new FileWriter(password_file, false);
 
-          // Construe a random pad:
-          Random r = new Random();
-          StringBuffer sb = new StringBuffer();
-          // Note on correctness: this pad is longer, but equally sufficient.
-          while(sb.length() < encoded.length){
-            sb.append(Integer.toHexString(r.nextInt()));
-          }
-          String pad = sb.toString();
-          LOGGER.info("Overwriting key material with pad: "+pad);
-          overwriter.write(pad);
-          overwriter.close();
+            // Construe a random pad:
+            Random r = new Random();
+            StringBuffer sb = new StringBuffer();
+            // Note on correctness: this pad is longer, but equally sufficient.
+            while (sb.length() < encoded.length) {
+                sb.append(Integer.toHexString(r.nextInt()));
+            }
+            String pad = sb.toString();
+            LOGGER.info("Overwriting key material with pad: " + pad);
+            overwriter.write(pad);
+            overwriter.close();
 
-          LOGGER.info("Removing/unlinking file: "+passwordfile_path);
-          password_file.delete();
+            LOGGER.info("Removing/unlinking file: " + passwordfile_path);
+            password_file.delete();
 
         } catch (IOException e) {
-          LOGGER.error("Caught IOException while retrieving the "+KEY_FILE_FLAG+"-passed keyfile; aborting: "+e.toString());
-          System.exit(1);
+            LOGGER.error("Caught IOException while retrieving the " + KEY_FILE_FLAG + "-passed keyfile; aborting: " + e.toString());
+            System.exit(1);
         }
 
         LOGGER.info("Read property protection key from key file provided by bootstrap process");
@@ -399,5 +429,79 @@ public class NiFi {
         }
         // Key length is in "nibbles" (i.e. one hex char = 4 bits)
         return Arrays.asList(128, 196, 256).contains(key.length() * 4) && key.matches("^[0-9a-fA-F]*$");
+    }
+
+    @SuppressWarnings("unchecked")
+    private void createClassloaderChainSubgraph(Graph graph) throws IOException {
+        if (graph == null) {
+            return;
+        }
+
+        LOGGER.info("Optimizing classloaders...");
+        long start = new Date().getTime();
+        // Find all JAR files in the graph, and group them into a sorted map whose keys are the number of NARs that load the JAR
+        GraphTraversalSource g = graph.traversal();
+        Map<Long, List<String>> unsortedMap = (Map<Long, List<String>>) g.V().has("type", "jar").group("a").by(inE("loads").count()).by("name").cap("a").next();
+        Map<Long, List<String>> sortedMap = new TreeMap<>(Comparator.reverseOrder());
+        sortedMap.putAll(unsortedMap);
+
+        // The optimized classloader chain algorithm is as follows:
+        //
+        // 1) Traverse the sorted set in order of most NARs' dependencies to least, filtering out those JARs who have a low number of NARs who depend on them
+        // 2)  For each entry in the sorted set, do the following:
+        // 3)   Find all the NARs that depend on all of the JARs in the entry
+        //
+        AtomicBoolean once = new AtomicBoolean(false);
+        sortedMap.entrySet().stream().filter((entry) -> entry.getKey() > NAR_DEPENDENCY_THRESHOLD).forEach((entry) -> {
+            if (!once.getAndSet(true)) return;
+            List<String> jarNameList = entry.getValue();
+            int numberOfJarsWithDegreeN = jarNameList.size();
+
+            // TODO can we replace this iteration with a traversal?
+            // First find the the set of NARs that depend on all the JARs, by building a dynamic and-clause
+            GraphTraversal[] andClauses = new GraphTraversal[jarNameList.size()];
+            IntStream.range(0, numberOfJarsWithDegreeN).forEach((i) -> {
+                String jarName = jarNameList.get(i);
+                Vertex jarVertex = g.V().where(values("name").is(jarName)).next();
+                andClauses[i] = out("loads").is(jarVertex);
+            });
+            List<Vertex> narsWithAllDependencies = g.V().has("type", "nar").where(and(andClauses)).toList();
+
+            // Create a classloader with all the URLs to the JARs
+            List<Vertex> jarList = g.V().has("type", "jar").filter((jar) -> jarNameList.contains(jar.get().property("name").value().toString())).toList();
+            List<String> jarLocations = jarList.stream().map((v) -> v.property("location").value().toString()).collect(Collectors.toList());
+            Vertex classloaderVertex = graph.addVertex("name", jarNameList.toString(),
+                    "type", "classloader",
+                    "urls", jarLocations);
+
+            // Create edges from the NARs to the classloader
+            narsWithAllDependencies.forEach((nar) -> {
+                Vertex terminalClassloader = null;
+                Edge linkToTerminalClassloader = null;
+                try {
+                    linkToTerminalClassloader = g.V(nar).outE("terminal classloader").next();
+                    terminalClassloader = g.V(nar).out("terminal classloader").next();
+                } catch (NoSuchElementException nsee) {
+                    // Leave the null assignment, the NAR doesn't have a parent classloader assigned yet
+                }
+
+                // If the NAR has an existing classloader chain, create an edge from the child classloader to the parent, otherwise create an edge from the classloader to the NAR
+                Vertex targetV = terminalClassloader != null ? terminalClassloader : nar;
+                classloaderVertex.addEdge("parent classloader", targetV,
+                        "nar", nar.property("name"));
+
+                // If the NAR has an existing classloader chain, move the "terminal classloader" edge to the latest classloader
+                nar.addEdge("terminal classloader", classloaderVertex);
+                if (linkToTerminalClassloader != null) {
+                    linkToTerminalClassloader.remove();
+                }
+            });
+        });
+
+        long stop = new Date().getTime();
+        LOGGER.info("Finished optimizing classloaders, took " + (stop - start) + " milliseconds");
+
+        // DEBUG
+        graph.io(IoCore.gryo()).writeGraph("/Users/mburgess/nifi-dep-graph.kryo");
     }
 }
