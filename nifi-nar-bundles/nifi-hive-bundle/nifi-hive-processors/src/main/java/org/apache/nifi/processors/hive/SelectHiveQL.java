@@ -20,8 +20,8 @@ import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -251,6 +251,7 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
         _propertyDescriptors.add(HIVEQL_CSV_QUOTE);
         _propertyDescriptors.add(HIVEQL_CSV_ESCAPE);
         _propertyDescriptors.add(CHARSET);
+        _propertyDescriptors.add(QUERY_TIMEOUT);
         propertyDescriptors = Collections.unmodifiableList(_propertyDescriptors);
 
         Set<Relationship> _relationships = new HashSet<>();
@@ -332,6 +333,7 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
         final boolean header = context.getProperty(HIVEQL_CSV_HEADER).asBoolean();
         final String altHeader = context.getProperty(HIVEQL_CSV_ALT_HEADER).evaluateAttributeExpressions(fileToProcess).getValue();
         final String delimiter = context.getProperty(HIVEQL_CSV_DELIMITER).evaluateAttributeExpressions(fileToProcess).getValue();
+        final int queryTimeout = context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(fileToProcess).asInteger();
         final boolean quote = context.getProperty(HIVEQL_CSV_QUOTE).asBoolean();
         final boolean escape = context.getProperty(HIVEQL_CSV_HEADER).asBoolean();
         final String fragmentIdentifier = UUID.randomUUID().toString();
@@ -339,6 +341,9 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
         try (final Connection con = dbcpService.getConnection(fileToProcess == null ? Collections.emptyMap() : fileToProcess.getAttributes());
              final Statement st = (flowbased ? con.prepareStatement(hqlStatement) : con.createStatement())
         ) {
+            // set query timeout
+            st.setQueryTimeout(queryTimeout);
+
             Pair<String,SQLException> failure = executeConfigStatements(con, preQueries);
             if (failure != null) {
                 // In case of failure, assigning config query to "hqlStatement"  to follow current error handling

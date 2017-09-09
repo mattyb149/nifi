@@ -128,6 +128,7 @@ public class PutHiveQL extends AbstractHiveQLProcessor {
         _propertyDescriptors.add(CHARSET);
         _propertyDescriptors.add(STATEMENT_DELIMITER);
         _propertyDescriptors.add(RollbackOnFailure.ROLLBACK_ON_FAILURE);
+        _propertyDescriptors.add(QUERY_TIMEOUT);
         propertyDescriptors = Collections.unmodifiableList(_propertyDescriptors);
 
         Set<Relationship> _relationships = new HashSet<>();
@@ -248,6 +249,7 @@ public class PutHiveQL extends AbstractHiveQLProcessor {
                     }
 
                     // Execute the statement
+                    stmt.setQueryTimeout(context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(flowFile).asInteger());
                     stmt.execute();
                     fc.proceed();
                 }
