@@ -341,8 +341,12 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
         try (final Connection con = dbcpService.getConnection(fileToProcess == null ? Collections.emptyMap() : fileToProcess.getAttributes());
              final Statement st = (flowbased ? con.prepareStatement(hqlStatement) : con.createStatement())
         ) {
-            // set query timeout
-            st.setQueryTimeout(queryTimeout);
+            try {
+                // set query timeout
+                st.setQueryTimeout(queryTimeout);
+            } catch (SQLException e) {
+                // just ignoring it, no timeout.
+            }
 
             Pair<String,SQLException> failure = executeConfigStatements(con, preQueries);
             if (failure != null) {
