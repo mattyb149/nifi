@@ -333,7 +333,6 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
         final boolean header = context.getProperty(HIVEQL_CSV_HEADER).asBoolean();
         final String altHeader = context.getProperty(HIVEQL_CSV_ALT_HEADER).evaluateAttributeExpressions(fileToProcess).getValue();
         final String delimiter = context.getProperty(HIVEQL_CSV_DELIMITER).evaluateAttributeExpressions(fileToProcess).getValue();
-        final int queryTimeout = context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(fileToProcess).asInteger();
         final boolean quote = context.getProperty(HIVEQL_CSV_QUOTE).asBoolean();
         final boolean escape = context.getProperty(HIVEQL_CSV_HEADER).asBoolean();
         final String fragmentIdentifier = UUID.randomUUID().toString();
@@ -342,10 +341,13 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
              final Statement st = (flowbased ? con.prepareStatement(hqlStatement) : con.createStatement())
         ) {
             try {
+                final int queryTimeout = context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(fileToProcess).asInteger();
                 // set query timeout
                 st.setQueryTimeout(queryTimeout);
             } catch (SQLException e) {
                 // just ignoring it, no timeout.
+            } catch (NumberFormatException e) {
+                throw new ProcessException("Query timeout value cannot be converted to an integer.", e);
             }
 
             Pair<String,SQLException> failure = executeConfigStatements(con, preQueries);

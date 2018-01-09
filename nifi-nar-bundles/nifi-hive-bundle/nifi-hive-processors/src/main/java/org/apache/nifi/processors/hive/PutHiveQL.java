@@ -253,6 +253,8 @@ public class PutHiveQL extends AbstractHiveQLProcessor {
                         stmt.setQueryTimeout(context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(flowFile).asInteger());
                     } catch (SQLException e) {
                         // just ignoring it, no timeout.
+                    } catch (NumberFormatException e) {
+                        throw new ProcessException("Query timeout value cannot be converted to an integer.", e);
                     }
 
                     // Execute the statement

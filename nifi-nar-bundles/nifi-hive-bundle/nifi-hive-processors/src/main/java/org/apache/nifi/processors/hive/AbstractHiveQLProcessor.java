@@ -106,7 +106,7 @@ public abstract class AbstractHiveQLProcessor extends AbstractSessionFactoryProc
                 problems.add(new ValidationResult.Builder()
                         .subject("Query Timeout")
                         .valid(false)
-                        .explanation(e.getLocalizedMessage())
+                        .explanation("setQueryTimeout caused the driver to report: " + e.getLocalizedMessage())
                         .build());
             }
         }
