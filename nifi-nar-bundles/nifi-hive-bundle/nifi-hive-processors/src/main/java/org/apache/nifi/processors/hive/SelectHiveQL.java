@@ -340,15 +340,9 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
         try (final Connection con = dbcpService.getConnection(fileToProcess == null ? Collections.emptyMap() : fileToProcess.getAttributes());
              final Statement st = (flowbased ? con.prepareStatement(hqlStatement) : con.createStatement())
         ) {
-            try {
-                final int queryTimeout = context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(fileToProcess).asInteger();
-                // set query timeout
-                st.setQueryTimeout(queryTimeout);
-            } catch (SQLException e) {
-                // just ignoring it, no timeout.
-            } catch (NumberFormatException e) {
-                throw new ProcessException("Query timeout value cannot be converted to an integer.", e);
-            }
+
+            // set query timeout
+            setTimeout(st, context, flowfile);
 
             Pair<String,SQLException> failure = executeConfigStatements(con, preQueries);
             if (failure != null) {

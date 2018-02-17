@@ -248,14 +248,8 @@ public class PutHiveQL extends AbstractHiveQLProcessor {
                         getLogger().warn("Failed to parse hiveQL: {} due to {}", new Object[]{hiveQL, e}, e);
                     }
 
-                    try {
-                        // set query timeout
-                        stmt.setQueryTimeout(context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(flowFile).asInteger());
-                    } catch (SQLException e) {
-                        // just ignoring it, no timeout.
-                    } catch (NumberFormatException e) {
-                        throw new ProcessException("Query timeout value cannot be converted to an integer.", e);
-                    }
+                    // set query timeout
+                    setTimeout(stmt, context, flowFile);
 
                     // Execute the statement
                     stmt.execute();
