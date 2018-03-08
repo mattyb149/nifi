@@ -20,6 +20,7 @@ package org.apache.nifi.processors.standard;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -52,6 +53,7 @@ import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.record.RecordUtils;
 import org.apache.nifi.record.path.FieldValue;
 import org.apache.nifi.record.path.RecordPath;
 import org.apache.nifi.record.path.util.RecordPathCache;
@@ -126,6 +128,7 @@ public class PartitionRecord extends AbstractProcessor {
         final List<PropertyDescriptor> properties = new ArrayList<>();
         properties.add(RECORD_READER);
         properties.add(RECORD_WRITER);
+        properties.add(RecordUtils.CHARSET);
         return properties;
     }
 
@@ -174,6 +177,7 @@ public class PartitionRecord extends AbstractProcessor {
 
         final RecordReaderFactory readerFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
         final RecordSetWriterFactory writerFactory = context.getProperty(RECORD_WRITER).asControllerService(RecordSetWriterFactory.class);
+        final Charset charset = DataTypeUtils.getCharset(context.getProperty(RecordUtils.CHARSET).getValue());
 
         final Map<String, RecordPath> recordPaths;
         try {
@@ -212,7 +216,7 @@ public class PartitionRecord extends AbstractProcessor {
                     recordMap.put(propName, fieldValues);
                 }
 
-                final RecordValueMap recordValueMap = new RecordValueMap(recordMap);
+                final RecordValueMap recordValueMap = new RecordValueMap(recordMap, charset);
 
                 // Get the RecordSetWriter that contains the same values for all RecordPaths - or create one if none exists.
                 RecordSetWriter writer = writerMap.get(recordValueMap);
@@ -342,9 +346,11 @@ public class PartitionRecord extends AbstractProcessor {
     private static class RecordValueMap {
         private final Map<String, List<ValueWrapper>> values;
         private FlowFile flowFile;
+        private final Charset charset;
 
-        public RecordValueMap(final Map<String, List<ValueWrapper>> values) {
+        public RecordValueMap(final Map<String, List<ValueWrapper>> values, Charset charset) {
             this.values = values;
+            this.charset = charset;
         }
 
         public Map<String, String> getAttributes() {
@@ -369,7 +375,7 @@ public class PartitionRecord extends AbstractProcessor {
                 }
 
                 // There exists a single value that is scalar. Create attribute using the property name as the attribute name
-                final String attributeValue = DataTypeUtils.toString(value, (String) null);
+                final String attributeValue = DataTypeUtils.toString(value, (String) null, charset);
                 attributes.put(entry.getKey(), attributeValue);
             }
 

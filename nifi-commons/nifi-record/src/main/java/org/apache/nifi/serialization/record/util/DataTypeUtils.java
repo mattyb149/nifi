@@ -489,6 +489,11 @@ public class DataTypeUtils {
         return dateFormat.format(date);
     }
 
+    // TODO validate all callers of this method will not be converting from anything that needs a charset
+    public static String toString(final Object value, final String format) {
+        return toString(value, format, StandardCharsets.UTF_8);
+    }
+
     public static String toString(final Object value, final String format, final Charset charset) {
         if (value == null) {
             return null;
