@@ -21,6 +21,7 @@ import org.apache.nifi.annotation.behavior.Restriction;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
+import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.RequiredPermission;
 import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.controller.ConfigurationContext;
@@ -36,8 +37,11 @@ import javax.script.ScriptException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.UndeclaredThrowableException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -71,6 +75,38 @@ public class ScriptedReader extends AbstractScriptedRecordFactory<RecordReaderFa
         return null;
     }
 
+    @Override
+    protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
+
+        synchronized (scriptingComponentHelper.isInitialized) {
+            if (!scriptingComponentHelper.isInitialized.get()) {
+                scriptingComponentHelper.createResources();
+            }
+        }
+        List<PropertyDescriptor> supportedPropertyDescriptors = new ArrayList<>();
+        supportedPropertyDescriptors.addAll(scriptingComponentHelper.getDescriptors());
+
+        final RecordReaderFactory instance = recordFactory.get();
+        if (instance != null) {
+            try {
+                final List<PropertyDescriptor> instanceDescriptors = instance.getPropertyDescriptors();
+                if (instanceDescriptors != null) {
+                    supportedPropertyDescriptors.addAll(instanceDescriptors);
+                }
+            } catch (final Throwable t) {
+                final ComponentLog logger = getLogger();
+                final String message = "Unable to get property descriptors from Processor: " + t;
+
+                logger.error(message);
+                if (logger.isDebugEnabled()) {
+                    logger.error(message, t);
+                }
+            }
+        }
+
+        return Collections.unmodifiableList(supportedPropertyDescriptors);
+    }
+
     /**
      * Reloads the script RecordReaderFactory. This must be called within the lock.
      *
@@ -97,7 +133,7 @@ public class ScriptedReader extends AbstractScriptedRecordFactory<RecordReaderFa
                     scriptEngine.eval(scriptBody);
                 }
 
-                // get configured processor from the script (if it exists)
+                // get configured reader from the script (if it exists)
                 final Object obj = scriptEngine.get("reader");
                 if (obj != null) {
                     final ComponentLog logger = getLogger();

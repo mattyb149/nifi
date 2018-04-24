@@ -16,16 +16,23 @@
  */
 package org.apache.nifi.record.script
 
+import groovy.json.JsonSlurper
 import org.apache.commons.io.FileUtils
 import org.apache.nifi.components.PropertyDescriptor
 import org.apache.nifi.controller.ConfigurationContext
+import org.apache.nifi.controller.ControllerService
 import org.apache.nifi.controller.ControllerServiceInitializationContext
 import org.apache.nifi.logging.ComponentLog
 import org.apache.nifi.processor.util.StandardValidators
 import org.apache.nifi.processors.script.AccessibleScriptingComponentHelper
+import org.apache.nifi.schemaregistry.services.SchemaRegistry
 import org.apache.nifi.script.ScriptingComponentHelper
 import org.apache.nifi.script.ScriptingComponentUtils
 import org.apache.nifi.serialization.RecordReader
+import org.apache.nifi.serialization.SimpleRecordSchema
+import org.apache.nifi.serialization.record.MockSchemaRegistry
+import org.apache.nifi.serialization.record.RecordField
+import org.apache.nifi.serialization.record.RecordFieldType
 import org.apache.nifi.util.MockComponentLog
 import org.apache.nifi.util.MockPropertyValue
 import org.apache.nifi.util.TestRunners
@@ -36,6 +43,8 @@ import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import static org.apache.nifi.schema.access.SchemaAccessUtils.SCHEMA_REGISTRY
+import static org.apache.nifi.schema.access.SchemaAccessUtils.SCHEMA_NAME
 
 import static groovy.util.GroovyTestCase.assertEquals
 import static org.junit.Assert.assertNotNull
@@ -57,7 +66,7 @@ class ScriptedReaderTest {
 
     @BeforeClass
     static void setUpOnce() throws Exception {
-        logger.metaClass.methodMissing = {String name, args ->
+        logger.metaClass.methodMissing = { String name, args ->
             logger.info("[${name?.toUpperCase()}] ${(args as List).join(" ")}")
         }
         FileUtils.copyDirectory('src/test/resources' as File, 'target/test/resources' as File)
@@ -74,7 +83,7 @@ class ScriptedReaderTest {
     void testRecordReaderGroovyScript() {
 
         def properties = [:] as Map<PropertyDescriptor, String>
-        recordReaderFactory.getSupportedPropertyDescriptors().each {PropertyDescriptor descriptor ->
+        recordReaderFactory.getSupportedPropertyDescriptors().each { PropertyDescriptor descriptor ->
             properties.put(descriptor, descriptor.getDefaultValue())
         }
 
@@ -114,7 +123,95 @@ class ScriptedReaderTest {
     void testXmlRecordReaderGroovyScript() {
 
         def properties = [:] as Map<PropertyDescriptor, String>
-        recordReaderFactory.getSupportedPropertyDescriptors().each {PropertyDescriptor descriptor ->
+        recordReaderFactory.getSupportedPropertyDescriptors().each { PropertyDescriptor descriptor ->
+            properties.put(descriptor, descriptor.getDefaultValue())
+        }
+
+        def schemaText = '''
+                [
+                  {"id": "int"},
+                  {"name": "string"},
+                  {"code": "int"}
+                ]
+            '''
+
+        def jsonSchema = new JsonSlurper().parseText(schemaText)
+        def recordSchema = new SimpleRecordSchema(jsonSchema.collect { field ->
+            def entry = field.entrySet()[0]
+            new RecordField(entry.key, RecordFieldType.of(entry.value).dataType)
+        } as List<RecordField>)
+
+        MockSchemaRegistry mockSchemaRegistry = new MockSchemaRegistry()
+        mockSchemaRegistry.addSchema('mySchema', recordSchema)
+
+        MockPropertyValue schemaRegistryPropertyValue = new MockPropertyValue('Schema Registry') {
+            @Override
+            <T extends ControllerService> T asControllerService(Class<T> serviceType) throws IllegalArgumentException {
+                (T) ((serviceType == SchemaRegistry) ? mockSchemaRegistry : super.asControllerService(serviceType))
+            }
+        }
+
+        // Mock the ConfigurationContext for setup(...)
+        def configurationContext = mock(ConfigurationContext)
+        when(configurationContext.getProperties()).thenReturn(properties)
+        when(configurationContext.getProperty(scriptingComponent.getScriptingComponentHelper().SCRIPT_ENGINE))
+                .thenReturn(new MockPropertyValue('Groovy'))
+        when(configurationContext.getProperty(ScriptingComponentUtils.SCRIPT_FILE))
+                .thenReturn(new MockPropertyValue(
+                'target/test/resources/groovy/test_record_reader_xml_schema_registry.groovy'))
+        when(configurationContext.getProperty(ScriptingComponentUtils.SCRIPT_BODY))
+                .thenReturn(new MockPropertyValue(null))
+        when(configurationContext.getProperty(ScriptingComponentUtils.MODULES))
+                .thenReturn(new MockPropertyValue(null))
+        when(configurationContext.getProperty(SCHEMA_REGISTRY)).thenReturn(schemaRegistryPropertyValue)
+        when(configurationContext.getProperty(SCHEMA_NAME)).thenReturn(new MockPropertyValue('mySchema'))
+
+        def logger = new MockComponentLog('ScriptedReader', '')
+        def initContext = mock(ControllerServiceInitializationContext)
+        when(initContext.getIdentifier()).thenReturn(UUID.randomUUID().toString())
+        when(initContext.getLogger()).thenReturn(logger)
+
+        recordReaderFactory.initialize initContext
+        recordReaderFactory.onEnabled configurationContext
+
+        Map<String, String> schemaVariables = ['record.tag': 'myRecord']
+
+        InputStream inStream = new ByteArrayInputStream('''
+                <root>
+                  <myRecord>
+                    <id>1</id>
+                    <name>John</name>
+                    <code>100</code>
+                  </myRecord>
+                    <myRecord>
+                    <id>2</id>
+                    <name>Mary</name>
+                    <code>200</code>
+                  </myRecord>
+                  <myRecord>
+                    <id>3</id>
+                    <name>Ramon</name>
+                    <code>300</code>
+                  </myRecord>
+                </root>
+            '''.bytes)
+
+        RecordReader recordReader = recordReaderFactory.createRecordReader(schemaVariables, inStream, logger)
+        assertNotNull(recordReader)
+
+        3.times {
+            def record = recordReader.nextRecord()
+            assertNotNull(record)
+            assertEquals(record.getAsInt('code'), record.getAsInt('id') * 100)
+        }
+        assertNull(recordReader.nextRecord())
+    }
+
+    @Test
+    void testXmlSchemaRecordReaderGroovyScript() {
+
+        def properties = [:] as Map<PropertyDescriptor, String>
+        recordReaderFactory.getSupportedPropertyDescriptors().each { PropertyDescriptor descriptor ->
             properties.put(descriptor, descriptor.getDefaultValue())
         }
 
