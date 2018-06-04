@@ -17,6 +17,7 @@
 package org.apache.nifi.processors.standard;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -117,7 +118,11 @@ public class ValidateXml extends AbstractProcessor {
     @OnScheduled
     public void parseSchema(final ProcessContext context) throws IOException, SAXException {
         try {
-            final File file = new File(context.getProperty(SCHEMA_FILE).getValue());
+            final File file = new File(context.getProperty(SCHEMA_FILE).evaluateAttributeExpressions().getValue());
+            // Ensure the file exists
+            if (!file.exists()) {
+                throw new FileNotFoundException("Schema file not found at specified location: " + file.getAbsolutePath());
+            }
             final SchemaFactory schemaFactory = SchemaFactory.newInstance(SCHEMA_LANGUAGE);
             final Schema schema = schemaFactory.newSchema(file);
             this.schemaRef.set(schema);
