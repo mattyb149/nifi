@@ -17,11 +17,15 @@
 package org.apache.nifi.processors.hive;
 
 import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -43,12 +47,15 @@ import org.apache.nifi.util.orc.TestNiFiOrcUtils;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -57,6 +64,7 @@ import java.util.TreeMap;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 
@@ -77,6 +85,76 @@ public class TestConvertAvroToORC {
     @Test
     public void test_Setup() throws Exception {
 
+    }
+
+    @Test
+    public void test_onTrigger_routing_to_failure_null_type() throws Exception {
+        String testString = "Hello World";
+        GenericData.Record record = TestNiFiOrcUtils.buildAvroRecordWithNull(testString);
+
+        DatumWriter<GenericData.Record> writer = new GenericDatumWriter<>(record.getSchema());
+        DataFileWriter<GenericData.Record> fileWriter = new DataFileWriter<>(writer);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        fileWriter.create(record.getSchema(), out);
+        fileWriter.append(record);
+        fileWriter.flush();
+        fileWriter.close();
+        out.close();
+
+        Map<String, String> attributes = new HashMap<String, String>() {{
+            put(CoreAttributes.FILENAME.key(), "test.avro");
+        }};
+        runner.enqueue(out.toByteArray(), attributes);
+        runner.run();
+
+        runner.assertAllFlowFilesTransferred(ConvertAvroToORC.REL_FAILURE, 1);
+        MockFlowFile resultFlowFile = runner.getFlowFilesForRelationship(ConvertAvroToORC.REL_FAILURE).get(0);
+        assertEquals("test.avro", resultFlowFile.getAttribute(CoreAttributes.FILENAME.key()));
+
+        final InputStream in = new ByteArrayInputStream(resultFlowFile.toByteArray());
+        final DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
+        try (DataFileStream<GenericRecord> dataFileReader = new DataFileStream<>(in, datumReader)) {
+            assertTrue(dataFileReader.hasNext());
+            GenericRecord testedRecord = dataFileReader.next();
+
+            assertNull(testedRecord.get("null"));
+            assertEquals(new Utf8(testString), testedRecord.get("string"));
+        }
+    }
+
+    @Test
+    public void test_onTrigger_routing_to_failure_empty_array_type() throws Exception {
+        String testString = "Hello World";
+        GenericData.Record record = TestNiFiOrcUtils.buildAvroRecordWithEmptyArray(testString);
+
+        DatumWriter<GenericData.Record> writer = new GenericDatumWriter<>(record.getSchema());
+        DataFileWriter<GenericData.Record> fileWriter = new DataFileWriter<>(writer);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        fileWriter.create(record.getSchema(), out);
+        fileWriter.append(record);
+        fileWriter.flush();
+        fileWriter.close();
+        out.close();
+
+        Map<String, String> attributes = new HashMap<String, String>() {{
+            put(CoreAttributes.FILENAME.key(), "test.avro");
+        }};
+        runner.enqueue(out.toByteArray(), attributes);
+        runner.run();
+
+        runner.assertAllFlowFilesTransferred(ConvertAvroToORC.REL_FAILURE, 1);
+        MockFlowFile resultFlowFile = runner.getFlowFilesForRelationship(ConvertAvroToORC.REL_FAILURE).get(0);
+        assertEquals("test.avro", resultFlowFile.getAttribute(CoreAttributes.FILENAME.key()));
+
+        final InputStream in = new ByteArrayInputStream(resultFlowFile.toByteArray());
+        final DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
+        try (DataFileStream<GenericRecord> dataFileReader = new DataFileStream<>(in, datumReader)) {
+            assertTrue(dataFileReader.hasNext());
+            GenericRecord testedRecord = dataFileReader.next();
+
+            assertEquals(Collections.emptyList(), testedRecord.get("emptyArray"));
+            assertEquals(new Utf8(testString), testedRecord.get("string"));
+        }
     }
 
     @Test
