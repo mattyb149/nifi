@@ -34,6 +34,7 @@ import org.apache.hadoop.io.Text;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -321,6 +322,13 @@ public class TestNiFiOrcUtils {
         return builder.endRecord();
     }
 
+    public static Schema buildAvroSchemaWithFixed() {
+        // Build a fake Avro record which contains null
+        final SchemaBuilder.FieldAssembler<Schema> builder = SchemaBuilder.record("test.record").namespace("any.data").fields();
+        builder.name("fixed").type().fixed("fixedField").size(6).fixedDefault("123456");
+        return builder.endRecord();
+    }
+
     public static GenericData.Record buildPrimitiveAvroRecord(int i, long l, boolean b, float f, double d, ByteBuffer bytes, String string) {
         Schema schema = buildPrimitiveAvroSchema();
         GenericData.Record row = new GenericData.Record(schema);
@@ -381,6 +389,13 @@ public class TestNiFiOrcUtils {
         GenericData.Record row = new GenericData.Record(schema);
         row.put("string", string);
         row.put("emptyArray", Collections.emptyList());
+        return row;
+    }
+
+    public static GenericData.Record buildAvroRecordWithFixed(String string) {
+        Schema schema = buildAvroSchemaWithFixed();
+        GenericData.Record row = new GenericData.Record(schema);
+        row.put("fixed", new GenericData.Fixed(schema, string.getBytes(StandardCharsets.UTF_8)));
         return row;
     }
 
