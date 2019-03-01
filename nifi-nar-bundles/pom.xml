@@ -95,6 +95,7 @@
         <module>nifi-druid-bundle</module>
         <module>nifi-jolt-record-bundle</module>
 		<module>nifi-network-bundle</module>
+    <module>nifi-python-bundle</module>
   </modules>
 
     <build>
@@ -117,7 +118,7 @@
                     <doUpdate>false</doUpdate>
                     <shortRevisionLength>7</shortRevisionLength>
                     <getRevisionOnlyOnce>true</getRevisionOnlyOnce>
-                    <revisionOnScmFailure />
+                    <revisionOnScmFailure/>
                     <buildNumberPropertyName>buildRevision</buildNumberPropertyName>
                     <scmBranchPropertyName>buildBranch</scmBranchPropertyName>
                 </configuration>
@@ -136,8 +137,8 @@
                 </file>
             </activation>
             <properties>
-                <buildRevision />
-                <buildBranch />
+                <buildRevision/>
+                <buildBranch/>
             </properties>
         </profile>
         <profile>
