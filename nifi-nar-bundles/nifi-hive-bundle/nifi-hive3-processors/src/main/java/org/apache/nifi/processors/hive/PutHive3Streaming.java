@@ -17,8 +17,14 @@
 package org.apache.nifi.processors.hive;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.IMetaStoreClient;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.conf.MetastoreConf;
+import org.apache.hadoop.hive.ql.io.orc.NiFiOrcUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hive.streaming.ConnectionError;
 import org.apache.hive.streaming.HiveRecordWriter;
@@ -56,6 +62,7 @@ import org.apache.nifi.processor.util.pattern.RollbackOnFailure;
 import org.apache.nifi.processors.hadoop.exception.RecordReaderFactoryException;
 import org.apache.nifi.serialization.RecordReader;
 import org.apache.nifi.serialization.RecordReaderFactory;
+import org.apache.nifi.serialization.record.RecordSchema;
 import org.apache.nifi.util.StringUtils;
 import org.apache.nifi.util.hive.AuthenticationFailedException;
 import org.apache.nifi.util.hive.HiveConfigurator;
@@ -79,6 +86,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.nifi.processors.hive.AbstractHive3QLProcessor.ATTR_OUTPUT_TABLES;
@@ -194,6 +202,28 @@ public class PutHive3Streaming extends AbstractProcessor {
             .defaultValue("false")
             .build();
 
+    static final PropertyDescriptor ADD_NEW_COLUMNS = new PropertyDescriptor.Builder()
+            .name("hive3-stream-add-new-columns")
+            .displayName("Add New Fields as Columns")
+            .description("Whether to automatically add columns to the target table if they exist in the input records but not yet in the table.")
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .build();
+
+    static final PropertyDescriptor DELETE_MISSING_COLUMNS = new PropertyDescriptor.Builder()
+            .name("hive3-stream-delete-missing-columns")
+            .displayName("Delete Columns When Field Missing")
+            .description("Whether to automatically delete columns from the target table if they exist in the table but the field(s) do not exist in the input records. "
+                    + "Note that partition columns will not be deleted even if the fields are missing from the record, instead an error is generated as partition column "
+                    + "values are required.")
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .build();
+
 
     static final PropertyDescriptor ROLLBACK_ON_FAILURE = RollbackOnFailure.createRollbackOnFailureProperty(
             "NOTE: When an error occurred after a Hive streaming transaction which is derived from the same input FlowFile is already committed," +
@@ -254,6 +284,8 @@ public class PutHive3Streaming extends AbstractProcessor {
         props.add(AUTOCREATE_PARTITIONS);
         props.add(CALL_TIMEOUT);
         props.add(DISABLE_STREAMING_OPTIMIZATIONS);
+        props.add(ADD_NEW_COLUMNS);
+        props.add(DELETE_MISSING_COLUMNS);
         props.add(ROLLBACK_ON_FAILURE);
         props.add(KERBEROS_CREDENTIALS_SERVICE);
 
@@ -350,6 +382,8 @@ public class PutHive3Streaming extends AbstractProcessor {
         final RecordReaderFactory recordReaderFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
         final String dbName = context.getProperty(DB_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue();
+        final boolean addNewColumns = context.getProperty(ADD_NEW_COLUMNS).asBoolean();
+        final boolean deleteMissingColumns = context.getProperty(DELETE_MISSING_COLUMNS).asBoolean();
 
         final ComponentLog log = getLogger();
         String metastoreURIs = null;
@@ -405,6 +439,11 @@ public class PutHive3Streaming extends AbstractProcessor {
                     reader = recordReaderFactory.createRecordReader(flowFile, in, getLogger());
                 } catch (Exception e) {
                     throw new RecordReaderFactoryException("Unable to create RecordReader", e);
+                }
+
+                if (addNewColumns || deleteMissingColumns) {
+                    checkAndUpdateTableSchema(hiveConfig, reader.getSchema(), dbName, tableName, addNewColumns, deleteMissingColumns);
+
                 }
 
                 hiveStreamingConnection = makeStreamingConnection(options, reader);
@@ -491,6 +530,50 @@ public class PutHive3Streaming extends AbstractProcessor {
             closeConnection(hiveStreamingConnection);
             // Restore original class loader, might not be necessary but is good practice since the processor task changed it
             Thread.currentThread().setContextClassLoader(originalClassloader);
+        }
+    }
+
+    private synchronized void checkAndUpdateTableSchema(final HiveConf hiveConfig, final RecordSchema schema, final String dbName, final String tableName,
+                                                        final boolean addNewColumns, final boolean deleteMissingColumns) throws IOException {
+        // Read in the current table metadata, compare it to the reader's schema, and
+        // add any columns from the schema that are missing in the table
+        IMetaStoreClient metaStoreClient = null;
+        try {
+            metaStoreClient = new HiveMetaStoreClient(hiveConfig);
+            Table hiveTable = metaStoreClient.getTable(dbName, tableName);
+            List<FieldSchema> cols = hiveTable.getSd().getCols();
+            if(cols == null) {
+                cols = new ArrayList<>(schema.getFieldCount());
+            }
+            final List<FieldSchema> hiveTableColumns = cols;
+            Map<String, FieldSchema> fieldSchemas = hiveTable.getSd().getCols().stream().collect(Collectors.toMap(FieldSchema::getName, Function.identity()));
+            final IMetaStoreClient msc = metaStoreClient;
+            final MutableBoolean schemaChanged = new MutableBoolean(false);
+            schema.getFields().forEach((recordField) -> {
+                // Check for new fields or field types, and update the table
+                String recordFieldName = recordField.getFieldName().toLowerCase();
+                FieldSchema matchedSchema = fieldSchemas.get(recordFieldName);
+                if (matchedSchema == null && addNewColumns) {
+                    // The field does not exist in the table, add it
+                    FieldSchema newColumnSchema = new FieldSchema(recordFieldName, NiFiOrcUtils.getHiveTypeFromFieldType(recordField.getDataType(), true), recordFieldName);
+                    hiveTableColumns.add(newColumnSchema);
+                    schemaChanged.setValue(true);
+                }
+                // TODO handle deleteMissingColumns
+            });
+
+            if(schemaChanged.booleanValue()) {
+                // Perform the table update
+                msc.alter_table(dbName, tableName, hiveTable);
+            }
+
+        } catch (Exception e) {
+            throw new IOException(e);
+
+        } finally {
+            if (metaStoreClient != null) {
+                metaStoreClient.close();
+            }
         }
     }
 
