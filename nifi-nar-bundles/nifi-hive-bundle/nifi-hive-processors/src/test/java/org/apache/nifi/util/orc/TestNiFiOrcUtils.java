@@ -31,10 +31,19 @@ import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.nifi.serialization.SimpleRecordSchema;
+import org.apache.nifi.serialization.record.RecordField;
+import org.apache.nifi.serialization.record.RecordFieldType;
+import org.apache.nifi.serialization.record.RecordSchema;
+import org.apache.nifi.serialization.record.SchemaIdentifier;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,6 +52,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Unit tests for the NiFiOrcUtils helper class
@@ -288,6 +298,35 @@ public class TestNiFiOrcUtils {
         NiFiOrcUtils.convertToORCObject(TypeInfoUtils.getTypeInfoFromTypeString("uniontype<bigint,long>"), "Hello");
     }
 
+    @Test
+    public void test_getPrimitiveOrcTypeFromPrimitiveFieldType() {
+        // Expected ORC types
+        TypeInfo[] expectedTypes = {
+                TypeInfoCreator.createInt(),
+                TypeInfoCreator.createLong(),
+                TypeInfoCreator.createBoolean(),
+                TypeInfoCreator.createFloat(),
+                TypeInfoCreator.createDouble(),
+                TypeInfoCreator.createBinary(),
+                TypeInfoCreator.createString(),
+        };
+
+        RecordSchema testSchema = buildPrimitiveRecordSchema();
+        List<RecordField> fields = testSchema.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            // Skip Binary as it is a primitive type in Avro but a complex type (array[byte]) in the NiFi Record API
+            if (i == 5) {
+                continue;
+            }
+            assertEquals(expectedTypes[i], NiFiOrcUtils.getPrimitiveOrcTypeFromPrimitiveFieldType(fields.get(i).getDataType()));
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void test_getPrimitiveOrcTypeFromPrimitiveFieldType_badType() {
+        NiFiOrcUtils.getPrimitiveOrcTypeFromPrimitiveFieldType(RecordFieldType.ARRAY.getDataType());
+    }
+
 
     //////////////////
     // Helper methods
@@ -340,6 +379,30 @@ public class TestNiFiOrcUtils {
         row.put("bytes", bytes);
         row.put("string", string);
         return row;
+    }
+
+    public static RecordSchema buildPrimitiveRecordSchema() {
+        // Build a fake record with all primitive types
+        try {
+            String schemaText = new String(Files.readAllBytes(Paths.get("src/test/resources/primitive_record.avsc")), StandardCharsets.UTF_8);
+            final SimpleRecordSchema recordSchema = new SimpleRecordSchema(schemaText, "avro", SchemaIdentifier.EMPTY);
+            recordSchema.setSchemaName("test");
+            recordSchema.setSchemaNamespace("nifi.test");
+            List<RecordField> recordFields = new ArrayList<>(6);
+
+            recordFields.add(new RecordField("int", RecordFieldType.INT.getDataType(), Collections.emptySet(), true));
+            recordFields.add(new RecordField("long", RecordFieldType.LONG.getDataType(), Collections.emptySet(), false));
+            recordFields.add(new RecordField("boolean", RecordFieldType.BOOLEAN.getDataType(), Collections.emptySet(), false));
+            recordFields.add(new RecordField("float", RecordFieldType.FLOAT.getDataType(), Collections.emptySet(), false));
+            recordFields.add(new RecordField("double", RecordFieldType.DOUBLE.getDataType(), Collections.emptySet(), false));
+            recordFields.add(new RecordField("string", RecordFieldType.STRING.getDataType(), Collections.emptySet(), false));
+
+            recordSchema.setFields(recordFields);
+            return recordSchema;
+        } catch(IOException ioe) {
+            fail("Could not parse primitive record schema");
+        }
+        return null;
     }
 
     public static TypeInfo buildPrimitiveOrcSchema() {
