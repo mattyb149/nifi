@@ -24,6 +24,7 @@ import org.apache.nifi.controller.scheduling.LifecycleState;
 import org.apache.nifi.controller.scheduling.SchedulingAgent;
 import org.apache.nifi.controller.service.ControllerServiceNode;
 import org.apache.nifi.controller.service.ControllerServiceProvider;
+import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.logging.LogLevel;
 import org.apache.nifi.nar.ExtensionManager;
 import org.apache.nifi.processor.ProcessContext;
@@ -44,6 +45,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public abstract class ProcessorNode extends AbstractComponentNode implements Connectable {
 
     protected final AtomicReference<ScheduledState> scheduledState;
+    protected final AtomicReference<ProcessGroup> processGroup;
+
 
     public ProcessorNode(final String id,
                          final ValidationContextFactory validationContextFactory, final ControllerServiceProvider serviceProvider,
@@ -53,6 +56,8 @@ public abstract class ProcessorNode extends AbstractComponentNode implements Con
         super(id, validationContextFactory, serviceProvider, componentType, componentCanonicalClass, variableRegistry, reloadComponent,
                 extensionManager, validationTrigger, isExtensionMissing);
         this.scheduledState = new AtomicReference<>(ScheduledState.STOPPED);
+        this.processGroup = new AtomicReference<>();
+
     }
 
     @Override
@@ -156,6 +161,16 @@ public abstract class ProcessorNode extends AbstractComponentNode implements Con
             return ScheduledState.STOPPED;
         }
         return sc;
+    }
+
+    @Override
+    public ProcessGroup getProcessGroup() {
+        return processGroup.get();
+    }
+
+    @Override
+    public synchronized void setProcessGroup(final ProcessGroup group) {
+        this.processGroup.set(group);
     }
 
     /**

@@ -283,4 +283,10 @@ public class StandardProcessContext implements ProcessContext, ControllerService
         return procNode.getName();
     }
 
+    @Override
+    public String getProcessGroupId() {
+        verifyTaskActive();
+        return procNode.getProcessGroup().getIdentifier();
+    }
+
 }

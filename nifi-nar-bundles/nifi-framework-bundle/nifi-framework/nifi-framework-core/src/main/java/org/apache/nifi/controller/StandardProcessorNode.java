@@ -120,7 +120,6 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
     public static final TimeUnit DEFAULT_TIME_UNIT = TimeUnit.MILLISECONDS;
     public static final String DEFAULT_YIELD_PERIOD = "1 sec";
     public static final String DEFAULT_PENALIZATION_PERIOD = "30 sec";
-    private final AtomicReference<ProcessGroup> processGroup;
     private final AtomicReference<ProcessorDetails> processorRef;
     private final AtomicReference<String> identifier;
     private final Map<Connection, Connectable> destinations;
@@ -187,7 +186,6 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
         concurrentTaskCount = new AtomicInteger(1);
         position = new AtomicReference<>(new Position(0D, 0D));
         style = new AtomicReference<>(Collections.unmodifiableMap(new HashMap<String, String>()));
-        this.processGroup = new AtomicReference<>();
         processScheduler = scheduler;
         penalizationPeriod = new AtomicReference<>(DEFAULT_PENALIZATION_PERIOD);
 
@@ -1141,13 +1139,8 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
     }
 
     @Override
-    public ProcessGroup getProcessGroup() {
-        return processGroup.get();
-    }
-
-    @Override
     public synchronized void setProcessGroup(final ProcessGroup group) {
-        this.processGroup.set(group);
+        super.setProcessGroup(group);
         LOG.debug("Resetting Validation State of {} due to setting process group", this);
         resetValidationState();
     }

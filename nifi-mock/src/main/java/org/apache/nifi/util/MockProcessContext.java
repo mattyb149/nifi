@@ -505,6 +505,11 @@ public class MockProcessContext extends MockControllerServiceLookup implements S
         return componentName;
     }
 
+    @Override
+    public String getProcessGroupId() {
+        return null;
+    }
+
     protected void setMaxConcurrentTasks(int maxConcurrentTasks) {
         this.maxConcurrentTasks = maxConcurrentTasks;
     }

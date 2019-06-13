@@ -166,4 +166,9 @@ public class StandardSchedulingContext implements SchedulingContext {
     public String getName() {
         return processorNode.getName();
     }
+
+    @Override
+    public String getProcessGroupId() {
+        return processContext.getProcessGroupId();
+    }
 }

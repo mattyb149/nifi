@@ -118,4 +118,9 @@ public class MockProcessContext implements ProcessContext {
     public String getName() {
         return null;
     }
+
+    @Override
+    public String getProcessGroupId() {
+        return null;
+    }
 }

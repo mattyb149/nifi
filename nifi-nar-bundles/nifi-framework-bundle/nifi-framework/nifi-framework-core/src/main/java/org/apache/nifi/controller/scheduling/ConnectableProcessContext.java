@@ -264,4 +264,9 @@ public class ConnectableProcessContext implements ProcessContext {
     public String getName() {
         return connectable.getName();
     }
+
+    @Override
+    public String getProcessGroupId() {
+        return connectable.getProcessGroup().getIdentifier();
+    }
 }

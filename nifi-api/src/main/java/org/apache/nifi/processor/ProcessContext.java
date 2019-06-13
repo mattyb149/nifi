@@ -157,4 +157,9 @@ public interface ProcessContext extends PropertyContext {
      * @return the configured name of this processor
      */
     String getName();
+
+    /**
+     * @return the identifier for the process group to which this processor belongs
+     */
+    String getProcessGroupId();
 }
