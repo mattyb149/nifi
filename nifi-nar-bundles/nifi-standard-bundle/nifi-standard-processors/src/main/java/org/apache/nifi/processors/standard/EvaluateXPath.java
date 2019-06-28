@@ -78,6 +78,8 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
+import org.apache.nifi.processor.util.StandardValidators;
+import org.apache.nifi.util.StringUtils;
 import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
 
@@ -115,6 +117,7 @@ public class EvaluateXPath extends AbstractProcessor {
 
     public static final PropertyDescriptor DESTINATION = new PropertyDescriptor.Builder()
             .name("Destination")
+            .displayName("Destination")
             .description("Indicates whether the results of the XPath evaluation are written to the FlowFile content or a FlowFile attribute; "
                     + "if using attribute, must specify the Attribute Name property. If set to flowfile-content, only one XPath may be specified, "
                     + "and the property name is ignored.")
@@ -125,7 +128,8 @@ public class EvaluateXPath extends AbstractProcessor {
 
     public static final PropertyDescriptor RETURN_TYPE = new PropertyDescriptor.Builder()
             .name("Return Type")
-            .description("Indicates the desired return type of the Xpath expressions.  Selecting 'auto-detect' will set the return type to 'nodeset' "
+            .displayName("Return Type")
+            .description("Indicates the desired return type of the XPath expressions.  Selecting 'auto-detect' will set the return type to 'nodeset' "
                     + "for a Destination of 'flowfile-content', and 'string' for a Destination of 'flowfile-attribute'.")
             .required(true)
             .allowableValues(RETURN_TYPE_AUTO, RETURN_TYPE_NODESET, RETURN_TYPE_STRING)
@@ -134,10 +138,23 @@ public class EvaluateXPath extends AbstractProcessor {
 
     public static final PropertyDescriptor VALIDATE_DTD = new PropertyDescriptor.Builder()
             .name("Validate DTD")
+            .displayName("Validate DTD")
             .description("Specifies whether or not the XML content should be validated against the DTD.")
             .required(true)
             .allowableValues("true", "false")
             .defaultValue("true")
+            .build();
+
+    public static final PropertyDescriptor ROOT_TAG = new PropertyDescriptor.Builder()
+            .name("eval-xpath-root-tag")
+            .displayName("Root Tag Name for Multiple Results")
+            .description("If Destination is set to 'flowfile-content', and the XPath evaluates to multiple nodes, this property's value will be used "
+                    + "as the root tag, in order to keep the outgoing flowfile as well-formed XML. If multiple nodes are returned and this property is not set, "
+                    + "the flowfile will be routed to 'failure'. This property is ignored if "
+                    + "Destination is set to 'flowfile-attribute")
+            .required(false)
+            .addValidator(StandardValidators.NON_EMPTY_EL_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
 
     public static final Relationship REL_MATCH = new Relationship.Builder()
@@ -154,7 +171,7 @@ public class EvaluateXPath extends AbstractProcessor {
             .name("failure")
             .description("FlowFiles are routed to this relationship "
                     + "when the XPath cannot be evaluated against the content of the FlowFile; for instance, if the FlowFile is not valid XML, or if the Return "
-                    + "Type is 'nodeset' and the XPath evaluates to multiple nodes")
+                    + "Type is 'nodeset' and the XPath evaluates to multiple nodes and Root Tag Name for Multiple Results is not set")
             .build();
 
     private Set<Relationship> relationships;
@@ -178,6 +195,7 @@ public class EvaluateXPath extends AbstractProcessor {
         properties.add(DESTINATION);
         properties.add(RETURN_TYPE);
         properties.add(VALIDATE_DTD);
+        properties.add(ROOT_TAG);
         this.properties = Collections.unmodifiableList(properties);
     }
 
@@ -348,16 +366,39 @@ public class EvaluateXPath extends AbstractProcessor {
                 }
 
                 if (returnType == NODESET) {
-                    List<Source> nodeList = (List<Source>) result;
+                    final List<Source> nodeList = (List<Source>) result;
                     if (nodeList.isEmpty()) {
                         logger.info("Routing {} to 'unmatched'", new Object[]{flowFile});
                         session.transfer(flowFile, REL_NO_MATCH);
                         continue flowFileLoop;
                     } else if (nodeList.size() > 1) {
-                        logger.error("Routing {} to 'failure' because the XPath evaluated to {} XML nodes",
-                                new Object[]{flowFile, nodeList.size()});
-                        session.transfer(flowFile, REL_FAILURE);
-                        continue flowFileLoop;
+                        final String rootTag = context.getProperty(ROOT_TAG).evaluateAttributeExpressions(flowFile).getValue();
+                        if (StringUtils.isEmpty(rootTag)) {
+                            logger.error("Routing {} to 'failure' because the XPath evaluated to {} XML nodes and "
+                                            + "Root Tag Name for Multiple Results is not set",
+                                    new Object[]{flowFile, nodeList.size()});
+                            session.transfer(flowFile, REL_FAILURE);
+                            continue flowFileLoop;
+                        }
+
+                        if (DESTINATION_ATTRIBUTE.equals(destination)) {
+                            logger.error("Routing {} to 'failure' because the XPath evaluated to {} XML nodes and "
+                                            + "Destination is " + DESTINATION_ATTRIBUTE,
+                                    new Object[]{flowFile, nodeList.size()});
+                            session.transfer(flowFile, REL_FAILURE);
+                            continue flowFileLoop;
+                        }
+                        flowFile = session.write(flowFile, rawOut -> {
+                            try (final OutputStream out = new BufferedOutputStream(rawOut)) {
+                                for (Source sourceNode : nodeList) {
+                                    doTransform(sourceNode, out);
+                                }
+                            } catch (TransformerException e) {
+                                error.set(e);
+                            }
+                        });
+                        // TODO move this out of the current if block?
+
                     }
                     final Source sourceNode = nodeList.get(0);
 

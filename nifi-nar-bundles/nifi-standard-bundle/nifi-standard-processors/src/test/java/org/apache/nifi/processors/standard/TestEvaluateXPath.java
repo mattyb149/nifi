@@ -19,6 +19,7 @@ package org.apache.nifi.processors.standard;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -113,7 +114,7 @@ public class TestEvaluateXPath {
     }
 
     @Test
-    public void testFailureIfContentMatchesMultipleNodes() throws XPathFactoryConfigurationException, IOException {
+    public void testFailureIfContentMatchesMultipleNodesWithNoRootTag() throws XPathFactoryConfigurationException, IOException {
         final TestRunner testRunner = TestRunners.newTestRunner(new EvaluateXPath());
         testRunner.setProperty(EvaluateXPath.DESTINATION, EvaluateXPath.DESTINATION_CONTENT);
         testRunner.setProperty("some.property", "/*:bundle/node/subNode");
@@ -122,6 +123,53 @@ public class TestEvaluateXPath {
         testRunner.run();
 
         testRunner.assertAllFlowFilesTransferred(EvaluateXPath.REL_FAILURE, 1);
+    }
+
+    @Test
+    public void testFailureIfContentMatchesMultipleNodesWithDestinationAttribute() throws XPathFactoryConfigurationException, IOException {
+        final TestRunner testRunner = TestRunners.newTestRunner(new EvaluateXPath());
+        testRunner.setProperty(EvaluateXPath.DESTINATION, EvaluateXPath.DESTINATION_ATTRIBUTE);
+        testRunner.setProperty(EvaluateXPath.RETURN_TYPE, EvaluateXPath.RETURN_TYPE_NODESET);
+        testRunner.setProperty("some.property", "/*:bundle/node/subNode");
+
+        testRunner.enqueue(XML_SNIPPET);
+        testRunner.run();
+
+        testRunner.assertAllFlowFilesTransferred(EvaluateXPath.REL_FAILURE, 1);
+    }
+
+    @Test
+    public void testIfContentMatchesMultipleNodesWithDestinationAttributeString() throws XPathFactoryConfigurationException, IOException {
+        final TestRunner testRunner = TestRunners.newTestRunner(new EvaluateXPath());
+        testRunner.setProperty(EvaluateXPath.DESTINATION, EvaluateXPath.DESTINATION_ATTRIBUTE);
+        testRunner.setProperty(EvaluateXPath.RETURN_TYPE, EvaluateXPath.RETURN_TYPE_STRING);
+        testRunner.setProperty("some.property", "/*:bundle/node/subNode");
+
+        testRunner.enqueue(XML_SNIPPET);
+        testRunner.run();
+
+        testRunner.assertAllFlowFilesTransferred(EvaluateXPath.REL_MATCH, 1);
+        final MockFlowFile out = testRunner.getFlowFilesForRelationship(EvaluateXPath.REL_MATCH).get(0);
+        final byte[] outData = testRunner.getContentAsByteArray(out);
+        final String outXml = new String(outData, StandardCharsets.UTF_8);
+        // TODO validate content
+    }
+
+    @Test
+    public void testContentMatchesMultipleNodes() throws IOException {
+        final TestRunner testRunner = TestRunners.newTestRunner(new EvaluateXPath());
+        testRunner.setProperty(EvaluateXPath.DESTINATION, EvaluateXPath.DESTINATION_CONTENT);
+        testRunner.setProperty(EvaluateXPath.ROOT_TAG, "root");
+        testRunner.setProperty("some.property", "/*:bundle/node/subNode");
+
+        testRunner.enqueue(XML_SNIPPET);
+        testRunner.run();
+
+        testRunner.assertAllFlowFilesTransferred(EvaluateXPath.REL_MATCH, 1);
+        final MockFlowFile out = testRunner.getFlowFilesForRelationship(EvaluateXPath.REL_MATCH).get(0);
+        final byte[] outData = testRunner.getContentAsByteArray(out);
+        final String outXml = new String(outData, StandardCharsets.UTF_8);
+        // TODO validate content
     }
 
     @Test
