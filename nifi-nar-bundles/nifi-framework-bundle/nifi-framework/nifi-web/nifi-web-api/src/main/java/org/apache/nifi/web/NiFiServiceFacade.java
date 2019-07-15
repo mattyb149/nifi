@@ -82,6 +82,7 @@ import org.apache.nifi.web.api.entity.AffectedComponentEntity;
 import org.apache.nifi.web.api.entity.BucketEntity;
 import org.apache.nifi.web.api.entity.BulletinEntity;
 import org.apache.nifi.web.api.entity.ConnectionEntity;
+import org.apache.nifi.web.api.entity.ConnectionStatisticsEntity;
 import org.apache.nifi.web.api.entity.ConnectionStatusEntity;
 import org.apache.nifi.web.api.entity.ControllerBulletinsEntity;
 import org.apache.nifi.web.api.entity.ControllerConfigurationEntity;
@@ -652,6 +653,14 @@ public interface NiFiServiceFacade {
      * @return history
      */
     StatusHistoryEntity getConnectionStatusHistory(String connectionId);
+
+    /**
+     * Gets analytical statistics for the specified connection.
+     *
+     * @param connectionId connection
+     * @return statistics
+     */
+    ConnectionStatisticsEntity getConnectionStatistics(String connectionId);
 
     /**
      * Creates a new Relationship target.
