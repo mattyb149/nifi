@@ -33,6 +33,8 @@
         <module>nifi-hive-nar</module>
         <module>nifi-hive_1_1-processors</module>
         <module>nifi-hive_1_1-nar</module>
+        <module>nifi-hive2-processors</module>
+        <module>nifi-hive2-nar</module>
         <module>nifi-hive3-processors</module>
         <module>nifi-hive3-nar</module>
     </modules>
@@ -53,6 +55,8 @@
         <hive11.hadoop.version>2.6.2</hive11.hadoop.version>
         <hive.version>1.2.1</hive.version>
         <hive.hadoop.version>2.6.2</hive.hadoop.version>
+        <hive2.version>2.3.5</hive2.version>
+        <hive2.hadoop.version>2.7.2</hive2.hadoop.version>
         <hive3.version>3.1.0</hive3.version>
         <hive3.hadoop.version>3.1.0</hive3.hadoop.version>
     </properties>
