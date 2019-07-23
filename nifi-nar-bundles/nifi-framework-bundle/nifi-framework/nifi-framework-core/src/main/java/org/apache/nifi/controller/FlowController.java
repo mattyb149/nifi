@@ -149,8 +149,8 @@ import org.apache.nifi.controller.service.StandardConfigurationContext;
 import org.apache.nifi.controller.service.StandardControllerServiceProvider;
 import org.apache.nifi.controller.state.manager.StandardStateManagerProvider;
 import org.apache.nifi.controller.state.server.ZooKeeperStateServer;
-import org.apache.nifi.controller.status.analytics.CachingStatusAnalyticEngine;
-import org.apache.nifi.controller.status.analytics.StatusAnalytics;
+import org.apache.nifi.controller.status.analytics.CachingConnectionStatusAnalyticsEngine;
+import org.apache.nifi.controller.status.analytics.StatusAnalyticsEngine;
 import org.apache.nifi.controller.status.history.ComponentStatusRepository;
 import org.apache.nifi.controller.status.history.GarbageCollectionHistory;
 import org.apache.nifi.controller.status.history.GarbageCollectionStatus;
@@ -347,7 +347,7 @@ public class FlowController implements ReportingTaskProvider, Authorizable, Node
     // guarded by rwLock
     private NodeConnectionStatus connectionStatus;
 
-    private StatusAnalytics analyticsEngine;
+    private StatusAnalyticsEngine analyticsEngine;
 
     // guarded by rwLock
     private String instanceId;
@@ -589,7 +589,7 @@ public class FlowController implements ReportingTaskProvider, Authorizable, Node
         }
 
         componentStatusRepository = createComponentStatusRepository();
-        analyticsEngine = new CachingStatusAnalyticEngine(this, componentStatusRepository);
+        analyticsEngine = new CachingConnectionStatusAnalyticsEngine(this, componentStatusRepository);
         eventAccess = new StandardEventAccess(this, flowFileEventRepository);
 
         timerDrivenEngineRef.get().scheduleWithFixedDelay(new Runnable() {
@@ -1374,7 +1374,7 @@ public class FlowController implements ReportingTaskProvider, Authorizable, Node
         return eventAccess;
     }
 
-    public StatusAnalytics getStatusAnalytics() {
+    public StatusAnalyticsEngine getStatusAnalyticsEngine() {
         return analyticsEngine;
     }
 
