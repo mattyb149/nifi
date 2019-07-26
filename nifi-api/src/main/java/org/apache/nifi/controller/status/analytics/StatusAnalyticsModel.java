@@ -16,8 +16,13 @@
  */
 package org.apache.nifi.controller.status.analytics;
 
-public interface StatusAnalyticsEngine {
+import java.util.stream.Stream;
 
-    StatusAnalytics getStatusAnalytics(String componentId);
+public interface StatusAnalyticsModel {
+
+    void learn(Stream<Double> features, Stream<Double> labels);
+    Double predict(Double feature);
+    QueryWindow getQueryWindow();
+    Boolean supportsOnlineLearning();
 
 }

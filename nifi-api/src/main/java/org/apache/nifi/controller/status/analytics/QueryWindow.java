@@ -16,8 +16,40 @@
  */
 package org.apache.nifi.controller.status.analytics;
 
-public interface StatusAnalyticsEngine {
+import java.util.Date;
 
-    StatusAnalytics getStatusAnalytics(String componentId);
+public class QueryWindow {
+
+    private long startTimeMillis;
+    private long endTimeMillis;
+
+    public QueryWindow(long startTimeMillis, long endTimeMillis) {
+        this.startTimeMillis = startTimeMillis;
+        this.endTimeMillis = endTimeMillis;
+    }
+
+    public long getStartTimeMillis() {
+        return startTimeMillis;
+    }
+
+    public void setStartTimeMillis(long startTimeMillis) {
+        this.startTimeMillis = startTimeMillis;
+    }
+
+    public long getEndTimeMillis() {
+        return endTimeMillis;
+    }
+
+    public void setEndTimeMillis(long endTimeMillis) {
+        this.endTimeMillis = endTimeMillis;
+    }
+
+    public Date getStartDateTime() {
+        return new Date(startTimeMillis);
+    }
+
+    public Date getEndDateTime() {
+        return new Date(endTimeMillis);
+    }
 
 }
