@@ -233,13 +233,21 @@ public class ConnectionStatus implements Cloneable {
         this.predictedTimeToBytesBackpressureMillis = predictedTimeToBytesBackpressureMillis;
     }
 
-    public int getPredictedPercentCount() {  return predictedPercentCount; }
+    public int getPredictedPercentCount() {
+        return predictedPercentCount;
+    }
 
-    public void setPredictedPercentCount(int predictedPercentCount) { this.predictedPercentCount = predictedPercentCount; }
+    public void setPredictedPercentCount(int predictedPercentCount) {
+        this.predictedPercentCount = predictedPercentCount;
+    }
 
-    public int getPredictedPercentBytes() {  return predictedPercentBytes; }
+    public int getPredictedPercentBytes() {
+        return predictedPercentBytes;
+    }
 
-    public void setPredictedPercentBytes(int predictedPercentBytes) { this.predictedPercentBytes = predictedPercentBytes; }
+    public void setPredictedPercentBytes(int predictedPercentBytes) {
+        this.predictedPercentBytes = predictedPercentBytes;
+    }
 
 
     @Override
