@@ -42,6 +42,7 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
 
     private static final Logger LOG = LoggerFactory.getLogger(ConnectionStatusAnalytics.class);
     private Map<String, Tuple<StatusAnalyticsModel, ExtractFunction>> modelMap;
+    private QueryWindow queryWindow;
     private final ComponentStatusRepository componentStatusRepository;
     private final String connectionIdentifier;
     private final FlowController flowController;
@@ -61,6 +62,7 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
             //TODO: Should change keys used here
             this.modelMap.put(ConnectionStatusDescriptor.QUEUED_COUNT.getField(), countModelFunction);
             this.modelMap.put(ConnectionStatusDescriptor.QUEUED_BYTES.getField(), byteModelFunction);
+            this.queryWindow = new QueryWindow(System.currentTimeMillis() - (5 * 60 * 1000), System.currentTimeMillis());
         }
 
         refresh();
@@ -72,7 +74,6 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
 
             StatusAnalyticsModel model = modelFunction.getKey();
             ExtractFunction extract = modelFunction.getValue();
-            QueryWindow queryWindow = model.getQueryWindow();
             StatusHistory statusHistory = componentStatusRepository.getConnectionStatusHistory(connectionIdentifier, queryWindow.getStartDateTime(), queryWindow.getEndDateTime(), Integer.MAX_VALUE);
             Tuple<Stream<Double>, Stream<Double>> modelData = extract.extractMetric(metric, statusHistory);
             LOG.info("Refreshing model for connection id: {} ", connectionIdentifier);
@@ -120,7 +121,7 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
             throw new NoSuchElementException("Connection with the following id cannot be found:" + connectionIdentifier + ". Model should be invalidated!");
         }
         final double backPressureCountThreshold = connection.getFlowFileQueue().getBackPressureObjectThreshold();
-        final double prediction = countModel.predictX(backPressureCountThreshold);
+        final Double prediction = countModel.predictX(backPressureCountThreshold);
 
         if (prediction != Double.NaN) {
             return Math.max(0, Math.round(prediction) - System.currentTimeMillis());
@@ -137,7 +138,7 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
 
     public long getNextIntervalBytes() {
         final BivariateStatusAnalyticsModel bytesModel = (BivariateStatusAnalyticsModel) modelMap.get(ConnectionStatusDescriptor.QUEUED_BYTES.getField()).getKey();
-        final double prediction = bytesModel.predictY((double) System.currentTimeMillis() + (5 * 60 * 100));
+        final Double prediction = bytesModel.predictY((double) System.currentTimeMillis() + getIntervalTimeMillis());
         if (prediction != Double.NaN) {
             return Math.round(prediction);
         } else {
@@ -153,12 +154,46 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
 
     public int getNextIntervalCount() {
         final BivariateStatusAnalyticsModel countModel = (BivariateStatusAnalyticsModel) modelMap.get(ConnectionStatusDescriptor.QUEUED_COUNT.getField()).getKey();
-        final double prediction = countModel.predictY((double) System.currentTimeMillis() + (5 * 60 * 100));
+        final Double prediction = countModel.predictY((double) System.currentTimeMillis() + getIntervalTimeMillis());
         if (prediction != Double.NaN) {
             return ((Long) Math.round(prediction)).intValue();
         } else {
             return 0;
         }
+    }
+
+    public int getNextIntervalPercentageUseCount(){
+
+        final Connection connection = getConnection();
+        if (connection == null) {
+            throw new NoSuchElementException("Connection with the following id cannot be found:" + connectionIdentifier + ". Model should be invalidated!");
+        }
+        final double backPressureCountThreshold = connection.getFlowFileQueue().getBackPressureObjectThreshold();
+
+        return ((Long)Math.round((getNextIntervalCount()/backPressureCountThreshold) * 100)).intValue();
+
+    }
+
+    public int getNextIntervalPercentageUseBytes(){
+
+        final Connection connection = getConnection();
+        if (connection == null) {
+            throw new NoSuchElementException("Connection with the following id cannot be found:" + connectionIdentifier + ". Model should be invalidated!");
+        }
+        final String backPressureDataSize = connection.getFlowFileQueue().getBackPressureDataSizeThreshold();
+        final double backPressureBytes = DataUnit.parseDataSize(backPressureDataSize, DataUnit.B);
+
+        return ((Long)Math.round((getNextIntervalBytes()/ backPressureBytes) * 100)).intValue();
+
+    }
+
+    public long getIntervalTimeMillis(){
+        return getQueryWindow().getTimeDifferenceMillis();
+    }
+
+    @Override
+    public QueryWindow getQueryWindow() {
+        return queryWindow;
     }
 
     /**
@@ -172,6 +207,9 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
         predictions.put("timeToCountBackpressureMillis", getTimeToCountBackpressureMillis());
         predictions.put("nextIntervalBytes", getNextIntervalBytes());
         predictions.put("nextIntervalCount", (long) getNextIntervalCount());
+        predictions.put("nextIntervalPercentageUseCount", (long)getNextIntervalPercentageUseCount());
+        predictions.put("nextIntervalPercentageUseBytes", (long)getNextIntervalPercentageUseBytes());
+        predictions.put("intervalTimeMillis", getIntervalTimeMillis());
 
         predictions.forEach((key,value) -> {
             LOG.info("Prediction model for connection id {}: {}={} ", connectionIdentifier,key,value);

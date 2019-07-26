@@ -1216,6 +1216,9 @@ public final class DtoFactory {
         snapshot.setPredictedMillisUntilCountBackpressure(predictions.get("timeToCountBackpressureMillis"));
         snapshot.setPredictedBytesAtNextInterval(predictions.get("nextIntervalBytes"));
         snapshot.setPredictedCountAtNextInterval(predictions.get("nextIntervalCount").intValue());
+        snapshot.setPredictedPercentBytes(predictions.get("nextIntervalPercentageUseBytes").intValue());
+        snapshot.setPredictedPercentCount(predictions.get("nextIntervalPercentageUseCount").intValue());
+        snapshot.setPredictionIntervalMillis(predictions.get("intervalTimeMillis"));
 
         return connectionStatisticsDTO;
     }

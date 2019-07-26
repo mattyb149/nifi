@@ -22,7 +22,6 @@ public interface StatusAnalyticsModel {
 
     void learn(Stream<Double> features, Stream<Double> labels);
     Double predict(Double feature);
-    QueryWindow getQueryWindow();
     Boolean supportsOnlineLearning();
 
 }

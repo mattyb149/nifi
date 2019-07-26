@@ -351,6 +351,9 @@ public class StandardEventAccess implements UserAwareEventAccess {
                     connStatus.setPredictedTimeToCountBackpressureMillis(predictions.get("timeToCountBackpressureMillis"));
                     connStatus.setNextPredictedQueuedBytes(predictions.get("nextIntervalBytes"));
                     connStatus.setNextPredictedQueuedCount(predictions.get("nextIntervalCount").intValue());
+                    connStatus.setPredictedPercentCount(predictions.get("nextIntervalPercentageUseCount").intValue());
+                    connStatus.setPredictedPercentBytes(predictions.get("nextIntervalPercentageUseBytes").intValue());
+                    connStatus.setPredictionIntervalMillis(predictions.get("intervalTimeMillis"));
                 }
             }
 

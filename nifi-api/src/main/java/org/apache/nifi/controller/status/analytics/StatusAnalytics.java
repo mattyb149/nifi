@@ -23,6 +23,7 @@ import java.util.Map;
  */
 public interface StatusAnalytics {
 
+    QueryWindow getQueryWindow();
     Map<String,Long> getPredictions();
     boolean supportsOnlineLearning();
 

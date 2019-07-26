@@ -30,13 +30,9 @@ public abstract class BivariateStatusAnalyticsModel implements StatusAnalyticsMo
     public abstract Double predictY(Double x);
 
     @Override
-    public QueryWindow getQueryWindow() {
-        return new QueryWindow(System.currentTimeMillis() - (5 * 60 * 1000), System.currentTimeMillis());
-    }
-
-    @Override
     public Boolean supportsOnlineLearning() {
         return false;
     }
+
 
 }
