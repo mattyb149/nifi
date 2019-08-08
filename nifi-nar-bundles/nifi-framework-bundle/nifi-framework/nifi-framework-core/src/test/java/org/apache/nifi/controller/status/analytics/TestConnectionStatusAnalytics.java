@@ -62,12 +62,11 @@ public class TestConnectionStatusAnalytics {
         connections.add(connection);
 
         List<StatusSnapshot> snapshotList = new ArrayList<>();
-        final long startTime = System.currentTimeMillis();
-        int iterations = 10;
+        int iterations = 2;
 
         for (int i = 0; i < iterations; i++) {
             final StandardStatusSnapshot snapshot = new StandardStatusSnapshot(CONNECTION_METRICS);
-            snapshot.setTimestamp(new Date(startTime + i * 1000));
+            snapshot.setTimestamp(new Date());
             snapshot.addStatusMetric(ConnectionStatusDescriptor.QUEUED_BYTES.getDescriptor(), (isConstantStatus || i < 5) ? queuedBytes : queuedBytes * 2);
             snapshot.addStatusMetric(ConnectionStatusDescriptor.QUEUED_COUNT.getDescriptor(), (isConstantStatus || i < 5) ? queuedCount : queuedCount * 2);
             snapshotList.add(snapshot);
@@ -99,7 +98,7 @@ public class TestConnectionStatusAnalytics {
         ConnectionStatusAnalytics connectionStatusAnalytics = getConnectionStatusAnalytics(5000L, 50L, "100MB", 100L, true);
         Long countTime = connectionStatusAnalytics.getTimeToCountBackpressureMillis();
         assertNotNull(countTime);
-        assert (countTime == -1L);
+        assert (countTime > -1L);
     }
 
     @Test
@@ -115,7 +114,7 @@ public class TestConnectionStatusAnalytics {
         ConnectionStatusAnalytics connectionStatusAnalytics = getConnectionStatusAnalytics(5000L, 50L, "100MB", 100L, true);
         Long bytesTime = connectionStatusAnalytics.getTimeToBytesBackpressureMillis();
         assertNotNull(bytesTime);
-        assert (bytesTime == -1L);
+        assert (bytesTime > -1L);
     }
 
     @Test
