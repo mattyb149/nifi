@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.nifi.connectable.Connection;
 import org.apache.nifi.controller.flow.FlowManager;
 import org.apache.nifi.controller.status.history.ComponentStatusRepository;
@@ -47,6 +48,7 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
     private final String connectionIdentifier;
     private final FlowManager flowManager;
     private final Boolean supportOnlineLearning;
+    private Boolean extendWindow = false;
 
     public ConnectionStatusAnalytics(ComponentStatusRepository componentStatusRepository, FlowManager flowManager, String connectionIdentifier, Boolean supportOnlineLearning) {
         this.componentStatusRepository = componentStatusRepository;
@@ -60,8 +62,8 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
         LOG.debug("Initialize analytics connection id: {} ", connectionIdentifier);
 
         if (this.modelMap == null || this.modelMap.isEmpty()) {
-            Tuple<StatusAnalyticsModel, ExtractFunction> countModelFunction = new Tuple<>(new SimpleRegressionBSAM(!supportsOnlineLearning()), extract);
-            Tuple<StatusAnalyticsModel, ExtractFunction> byteModelFunction = new Tuple<>(new SimpleRegressionBSAM(!supportsOnlineLearning()), extract);
+            Tuple<StatusAnalyticsModel, ExtractFunction> countModelFunction = new Tuple<>(new RecursiveLeastSquaresBSAM(!supportsOnlineLearning()), extract);
+            Tuple<StatusAnalyticsModel, ExtractFunction> byteModelFunction = new Tuple<>(new RecursiveLeastSquaresBSAM(!supportsOnlineLearning()), extract);
             this.modelMap = new HashMap<>();
             //TODO: Should change keys used here
             this.modelMap.put(ConnectionStatusDescriptor.QUEUED_COUNT.getField(), countModelFunction);
@@ -74,21 +76,42 @@ public class ConnectionStatusAnalytics implements StatusAnalytics {
     public void refresh() {
 
         LOG.debug("Refreshing model with new data for connection id: {} ", connectionIdentifier);
+
         if (this.queryWindow == null) {
             this.queryWindow = new QueryWindow(System.currentTimeMillis() - getIntervalTimeMillis(), System.currentTimeMillis());
         } else if (supportsOnlineLearning()) {
-            this.queryWindow = new QueryWindow(queryWindow.getEndTimeMillis(), System.currentTimeMillis());
+            this.queryWindow = new QueryWindow(extendWindow? queryWindow.getStartTimeMillis() : queryWindow.getEndTimeMillis(), System.currentTimeMillis());
         }
+
         modelMap.forEach((metric, modelFunction) -> {
 
             StatusAnalyticsModel model = modelFunction.getKey();
             ExtractFunction extract = modelFunction.getValue();
             StatusHistory statusHistory = componentStatusRepository.getConnectionStatusHistory(connectionIdentifier, queryWindow.getStartDateTime(), queryWindow.getEndDateTime(), Integer.MAX_VALUE);
             Tuple<Stream<Double>, Stream<Double>> modelData = extract.extractMetric(metric, statusHistory);
-            Stream<Double> times = modelData.getKey();
-            Stream<Double> values = modelData.getValue();
-            //times are the X axis and values are on the y axis
-            model.learn(times, values);
+
+            Double[] features = modelData.getKey().toArray(size -> new Double[size]);
+            Double[] values = modelData.getValue().toArray(size -> new Double[size]);
+
+            if(ArrayUtils.isNotEmpty(features)){
+
+                try {
+
+                    model.learn(Stream.of(features), Stream.of(values));
+                    extendWindow = false;
+                    LOG.debug("Features Values received {} : {}", features, values);
+                }catch(IllegalArgumentException iax){
+                    LOG.debug("Not enough observations for model to make prediction. Number of obs: {}", features.length);
+                    extendWindow = true;
+                }
+                catch(IllegalStateException isx){
+                    LOG.debug("Model cannot use observations: {}", isx.getMessage());
+                    extendWindow = true;
+                }
+
+            }else{
+                extendWindow = true;
+            }
 
         });
     }
