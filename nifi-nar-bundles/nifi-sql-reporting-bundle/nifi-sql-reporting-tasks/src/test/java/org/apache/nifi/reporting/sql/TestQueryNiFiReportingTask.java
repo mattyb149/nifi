@@ -66,10 +66,10 @@ public class TestQueryNiFiReportingTask {
         status.setFlowFilesReceived(5);
         status.setBytesReceived(10000);
         status.setFlowFilesSent(10);
+        status.setBytesRead(20000L);
         status.setBytesSent(20000);
         status.setQueuedCount(100);
         status.setQueuedContentSize(1024L);
-        status.setBytesRead(null);
         status.setBytesWritten(80000L);
         status.setActiveThreadCount(5);
 
@@ -98,10 +98,12 @@ public class TestQueryNiFiReportingTask {
         // create a group status with processing time
         ProcessGroupStatus groupStatus1 = new ProcessGroupStatus();
         groupStatus1.setProcessorStatus(processorStatuses);
+        groupStatus1.setBytesRead(1234L);
 
         // Create a nested group status with a connection
         ProcessGroupStatus groupStatus2 = new ProcessGroupStatus();
         groupStatus2.setProcessorStatus(processorStatuses);
+        groupStatus2.setBytesRead(12345L);
         ConnectionStatus nestedConnectionStatus = new ConnectionStatus();
         nestedConnectionStatus.setId("nested");
         nestedConnectionStatus.setQueuedCount(1001);
@@ -113,6 +115,7 @@ public class TestQueryNiFiReportingTask {
         groupStatus1.setProcessGroupStatus(nestedGroupStatuses);
 
         ProcessGroupStatus groupStatus3 = new ProcessGroupStatus();
+        groupStatus3.setBytesRead(1L);
         ConnectionStatus nestedConnectionStatus2 = new ConnectionStatus();
         nestedConnectionStatus2.setId("nested2");
         nestedConnectionStatus2.setQueuedCount(3);
@@ -189,6 +192,31 @@ public class TestQueryNiFiReportingTask {
         assertEquals(11, row.size());
         assertTrue(row.get(MetricNames.JVM_DAEMON_THREAD_COUNT.replace(".","_")) instanceof Integer);
         assertTrue(row.get(MetricNames.JVM_HEAP_USAGE.replace(".","_")) instanceof Double);
+    }
+
+    @Test
+    public void testProcessGroupStatusTable() throws IOException, InitializationException {
+        final Map<PropertyDescriptor, String> properties = new HashMap<>();
+        properties.put(QueryNiFiReportingTask.RECORD_SINK, "mock-record-sink");
+        properties.put(QueryNiFiReportingTask.QUERY, "select * from PROCESS_GROUP_STATUS order by bytesRead asc");
+        reportingTask = initTask(properties);
+        reportingTask.onTrigger(context);
+
+        List<Map<String, Object>> rows = mockRecordSinkService.getRows();
+        assertEquals(4, rows.size());
+        // Validate the first row
+        Map<String, Object> row = rows.get(0);
+        assertEquals(20, row.size());
+        assertEquals(1L, row.get("bytesRead"));
+        // Validate the second row
+        row = rows.get(1);
+        assertEquals(1234L, row.get("bytesRead"));
+        // Validate the third row
+        row = rows.get(2);
+        assertEquals(12345L, row.get("bytesRead"));
+        // Validate the fourth row
+        row = rows.get(3);
+        assertEquals(20000L, row.get("bytesRead"));
     }
 
     @Test

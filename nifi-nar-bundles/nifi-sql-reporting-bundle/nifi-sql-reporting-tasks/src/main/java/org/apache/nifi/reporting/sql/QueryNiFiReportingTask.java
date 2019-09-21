@@ -41,6 +41,8 @@ import org.apache.nifi.reporting.ReportingInitializationContext;
 import org.apache.nifi.reporting.sql.bulletins.BulletinTable;
 import org.apache.nifi.reporting.sql.connectionstatus.ConnectionStatusTable;
 import org.apache.nifi.reporting.sql.metrics.JvmMetricsTable;
+import org.apache.nifi.reporting.sql.processgroupstatus.ProcessGroupStatusTable;
+import org.apache.nifi.reporting.sql.processorstatus.ProcessorStatusTable;
 import org.apache.nifi.serialization.record.RecordSchema;
 import org.apache.nifi.serialization.record.ResultSetRecordSet;
 import org.apache.nifi.util.StopWatch;
@@ -65,7 +67,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-@Tags({"status", "connection", "metrics", "history", "bulletin", "sql"}) // TODO
+@Tags({"status", "connection", "processor", "jvm", "metrics", "history", "bulletin", "sql"}) // TODO
 @CapabilityDescription("Publishes NiFi status information based on the results of a user-specified SQL query.")
 public class QueryNiFiReportingTask extends AbstractReportingTask {
 
@@ -81,7 +83,7 @@ public class QueryNiFiReportingTask extends AbstractReportingTask {
             .name("sql-reporting-query")
             .displayName("SQL Query")
             .description("SQL SELECT statement specifies which tables to query and how data should be filtered/transformed. "
-                    + "SQL SELECT can select from the CONNECTION_STATUS or JVM_METRICS tables") // TODO
+                    + "SQL SELECT can select from the CONNECTION_STATUS,PROCESSOR_STATUS,BULLETINS or JVM_METRICS tables") // TODO
             .required(true)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(new SqlValidator())
@@ -190,6 +192,10 @@ public class QueryNiFiReportingTask extends AbstractReportingTask {
 
         final ConnectionStatusTable connectionStatusTable = new ConnectionStatusTable(context, getLogger());
         rootSchema.add("CONNECTION_STATUS", connectionStatusTable);
+        final ProcessorStatusTable processorStatusTable = new ProcessorStatusTable(context, getLogger());
+        rootSchema.add("PROCESSOR_STATUS", processorStatusTable);
+        final ProcessGroupStatusTable processGroupStatusTable = new ProcessGroupStatusTable(context, getLogger());
+        rootSchema.add("PROCESS_GROUP_STATUS", processGroupStatusTable);
         final JvmMetricsTable jvmMetricsTable = new JvmMetricsTable(context, getLogger());
         rootSchema.add("JVM_METRICS", jvmMetricsTable);
         final BulletinTable bulletinTable = new BulletinTable(context, getLogger());
