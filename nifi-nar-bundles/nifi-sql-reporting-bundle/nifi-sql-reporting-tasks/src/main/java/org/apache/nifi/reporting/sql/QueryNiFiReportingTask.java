@@ -31,6 +31,7 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.ValidationContext;
 import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.components.Validator;
+import org.apache.nifi.controller.status.analytics.ConnectionStatusPredictions;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.record.sink.RecordSinkService;
@@ -40,6 +41,7 @@ import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.ReportingInitializationContext;
 import org.apache.nifi.reporting.sql.bulletins.BulletinTable;
 import org.apache.nifi.reporting.sql.connectionstatus.ConnectionStatusTable;
+import org.apache.nifi.reporting.sql.connectionstatuspredictions.ConnectionStatusPredictionsTable;
 import org.apache.nifi.reporting.sql.metrics.JvmMetricsTable;
 import org.apache.nifi.reporting.sql.processgroupstatus.ProcessGroupStatusTable;
 import org.apache.nifi.reporting.sql.processorstatus.ProcessorStatusTable;
@@ -192,6 +194,8 @@ public class QueryNiFiReportingTask extends AbstractReportingTask {
 
         final ConnectionStatusTable connectionStatusTable = new ConnectionStatusTable(context, getLogger());
         rootSchema.add("CONNECTION_STATUS", connectionStatusTable);
+        final ConnectionStatusPredictionsTable connectionStatusPredictionsTable = new ConnectionStatusPredictionsTable(context, getLogger());
+        rootSchema.add("CONNECTION_STATUS_PREDICTIONS", connectionStatusPredictionsTable);
         final ProcessorStatusTable processorStatusTable = new ProcessorStatusTable(context, getLogger());
         rootSchema.add("PROCESSOR_STATUS", processorStatusTable);
         final ProcessGroupStatusTable processGroupStatusTable = new ProcessGroupStatusTable(context, getLogger());
