@@ -24,6 +24,7 @@ import org.apache.nifi.controller.status.ProcessGroupStatus;
 import org.apache.nifi.controller.status.analytics.ConnectionStatusPredictions;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.reporting.ReportingContext;
+import org.apache.nifi.reporting.sql.util.ConnectionStatusRecursiveIterator;
 
 import java.util.Deque;
 import java.util.Iterator;
@@ -34,13 +35,13 @@ public class ConnectionStatusPredictionsEnumerator implements Enumerator<Object>
     private final ComponentLog logger;
     private final int[] fields;
 
-    private Deque<Iterator<ProcessGroupStatus>> iteratorBreadcrumb;
-    private Iterator<ConnectionStatus> connectionStatusIterator;
+    private ConnectionStatusRecursiveIterator connectionStatusIterator;
     private Object currentRow;
     private int recordsRead = 0;
 
     public ConnectionStatusPredictionsEnumerator(final ReportingContext context, final ComponentLog logger, final int[] fields) {
         this.context = context;
+        this.connectionStatusIterator = new ConnectionStatusRecursiveIterator(context);
         this.logger = logger;
         this.fields = fields;
         reset();
@@ -54,14 +55,7 @@ public class ConnectionStatusPredictionsEnumerator implements Enumerator<Object>
     @Override
     public boolean moveNext() {
         currentRow = null;
-        if (iteratorBreadcrumb.isEmpty()) {
-            // Start the breadcrumb trail to follow recursively into process groups looking for connections
-            ProcessGroupStatus rootStatus = context.getEventAccess().getControllerStatus();
-            iteratorBreadcrumb.push(rootStatus.getProcessGroupStatus().iterator());
-            connectionStatusIterator = rootStatus.getConnectionStatus().iterator();
-        }
-
-        final ConnectionStatus connectionStatus = getNextConnectionStatusPrediction();
+        final ConnectionStatus connectionStatus = connectionStatusIterator.next();
         if (connectionStatus == null) {
             // If we are out of data, close the InputStream. We do this because
             // Calcite does not necessarily call our close() method.
@@ -136,33 +130,10 @@ public class ConnectionStatusPredictionsEnumerator implements Enumerator<Object>
     public void reset() {
         // Clear the root PG status object so it is fetched fresh on the first record
         connectionStatusIterator = null;
-        iteratorBreadcrumb = new LinkedList<>();
+        this.connectionStatusIterator = new ConnectionStatusRecursiveIterator(context);
     }
 
     @Override
     public void close() {
-    }
-
-    private ConnectionStatus getNextConnectionStatusPrediction() {
-        if (connectionStatusIterator != null && connectionStatusIterator.hasNext()) {
-            return connectionStatusIterator.next();
-        }
-        // No more connections in this PG, so move to the next
-        connectionStatusIterator = null;
-        Iterator<ProcessGroupStatus> i = iteratorBreadcrumb.peek();
-        if (i == null) {
-            return null;
-        }
-
-        if (i.hasNext()) {
-            ProcessGroupStatus nextPG = i.next();
-            iteratorBreadcrumb.push(nextPG.getProcessGroupStatus().iterator());
-            connectionStatusIterator = nextPG.getConnectionStatus().iterator();
-            return getNextConnectionStatusPrediction();
-        } else {
-            // No more child PGs, remove it from the breadcrumb trail and try again
-            iteratorBreadcrumb.pop();
-            return getNextConnectionStatusPrediction();
-        }
     }
 }
