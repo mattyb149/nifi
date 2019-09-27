@@ -95,6 +95,10 @@ public class ConnectionStatusPredictionsEnumerator implements Enumerator<Object>
 
         final ConnectionStatusPredictions predictions = status.getPredictions();
 
+        if (predictions == null) {
+            return null;
+        }
+
         final Object[] row = new Object[]{
                 status.getId(),
                 predictions.getNextPredictedQueuedBytes(),
