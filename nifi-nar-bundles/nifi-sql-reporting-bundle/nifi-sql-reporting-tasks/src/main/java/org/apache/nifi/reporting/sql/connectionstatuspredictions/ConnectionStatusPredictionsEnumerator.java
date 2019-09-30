@@ -83,7 +83,7 @@ public class ConnectionStatusPredictionsEnumerator implements Enumerator<Object>
     }
 
     private Object filterColumns(final ConnectionStatus status) {
-        if (status == null) {
+        if (status == null || status.getPredictions() == null) {
             return null;
         }
 
