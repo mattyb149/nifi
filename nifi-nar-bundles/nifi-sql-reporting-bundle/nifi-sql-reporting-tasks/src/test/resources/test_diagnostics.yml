@@ -31,7 +31,7 @@ name: "Connection Assessment of Concern"
 rules:
   - name: "Queue Size"
     description: "Queue size check greater than 1000"
-    priority: 2
+    priority: 1
     condition: "predictedQueuedCount == 1000"
     actions:
       - type: "LOG"
