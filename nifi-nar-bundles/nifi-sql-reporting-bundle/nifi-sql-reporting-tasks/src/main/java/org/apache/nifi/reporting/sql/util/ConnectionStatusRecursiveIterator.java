@@ -62,7 +62,9 @@ public class ConnectionStatusRecursiveIterator implements Iterator<ConnectionSta
         }
 
         if (hasNext()) {
-            return currentRow;
+            ConnectionStatus result = currentRow;
+            currentRow = null;
+            return result;
         } else {
             return null;
         }
