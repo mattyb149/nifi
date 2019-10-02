@@ -26,8 +26,8 @@ import java.util.*;
 @CapabilityDescription("Triggers rules-driven events based on metrics values ")
 public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
-    private static final AllowableValue YAML = new AllowableValue("YAML", "YAML", "YAML file configuration type.");
-    private static final AllowableValue JSON = new AllowableValue("JSON", "JSON", "JSON file configuration type.");
+    public static final AllowableValue YAML = new AllowableValue("YAML", "YAML", "YAML file configuration type.");
+    public static final AllowableValue JSON = new AllowableValue("JSON", "JSON", "JSON file configuration type.");
 
     static final PropertyDescriptor RULES_FILE_PATH = new PropertyDescriptor.Builder()
             .name("rules-file-path")

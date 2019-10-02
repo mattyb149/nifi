@@ -43,7 +43,7 @@ public class DiagnosticFactory {
     }
 
     private static List<Diagnostic> jsonToDiagnostic(String diagnosticFile) throws Exception{
-        List<Diagnostic> diagnostics;
+        List<Diagnostic> diagnostics = new ArrayList<>();
         Gson gson = new Gson();
         InputStreamReader isr = new InputStreamReader(new FileInputStream(diagnosticFile));
         Type diagnosticListType = new TypeToken<ArrayList<Diagnostic>>(){}.getType();
