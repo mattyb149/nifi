@@ -15,6 +15,7 @@ import java.util.Map;
 public class MockDiagnosticEventHandlerService  extends AbstractConfigurableComponent implements DiagnosticEventHandlerService {
 
     private List<Map<String, Object>> rows = new ArrayList<>();
+    private List<EventAction> actions = new ArrayList<>();
 
     @Override
     public void sendData(Map<String, Object> metrics, EventAction action, Map<String, String> attributes) {
@@ -22,6 +23,10 @@ public class MockDiagnosticEventHandlerService  extends AbstractConfigurableComp
         if(metrics != null && !metrics.isEmpty()) {
             rows.add(metrics);
         }
+        if(action != null){
+            actions.add(action);
+        }
+
     }
 
     @Override
@@ -31,6 +36,10 @@ public class MockDiagnosticEventHandlerService  extends AbstractConfigurableComp
 
     public List<Map<String, Object>> getRows() {
         return rows;
+    }
+
+    public List<EventAction> getActions() {
+        return actions;
     }
 
     @Override
