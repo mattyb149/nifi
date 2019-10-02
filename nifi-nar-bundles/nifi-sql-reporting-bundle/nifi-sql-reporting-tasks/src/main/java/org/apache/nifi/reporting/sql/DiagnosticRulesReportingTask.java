@@ -10,10 +10,8 @@ import org.apache.nifi.reporting.AbstractReportingTask;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.ReportingInitializationContext;
+import org.apache.nifi.reporting.diagnostics.*;
 import org.apache.nifi.reporting.diagnostics.Action;
-import org.apache.nifi.reporting.diagnostics.Diagnostic;
-import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
-import org.apache.nifi.reporting.diagnostics.Metrics;
 import org.apache.nifi.reporting.diagnostics.Rule;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.ResultSetRecordSet;
@@ -35,8 +33,8 @@ import java.util.*;
 @CapabilityDescription("Triggers rules-driven events based on metrics values ")
 public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
-    public static final AllowableValue YAML = new AllowableValue("yaml", "YAML", "YAML file configuration type.");
-    public static final AllowableValue JSON = new AllowableValue("json", "JSON", "JSON file configuration type.");
+    public static final AllowableValue YAML = new AllowableValue("YAML", "YAML", "YAML file configuration type.");
+    public static final AllowableValue JSON = new AllowableValue("JSON", "JSON", "JSON file configuration type.");
 
     static final PropertyDescriptor RULES_FILE_PATH = new PropertyDescriptor.Builder()
             .name("rules-file-path")
@@ -88,10 +86,12 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
         diagnosticEventHandlerService = context.getProperty(DIAGNOSTIC_EVENT_HANDLER).asControllerService(DiagnosticEventHandlerService.class);
         final String rulesFile = context.getProperty(RULES_FILE_PATH).getValue();
+        final String rulesFileType = context.getProperty(RULES_FILE_TYPE).getValue();
 
         try {
 
-            List<Diagnostic> diagnostics = getDiagnostics(rulesFile);
+            List<Diagnostic> diagnostics = DiagnosticFactory.createDiagnostics(rulesFile, rulesFileType);
+
             if(diagnostics == null || diagnostics.isEmpty()){
                 getLogger().warn("No diagnostics available - confirm configuration file has content!");
             }else{
@@ -116,19 +116,6 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
             getLogger().error("Error opening loading rules", new Object[]{e.getMessage()}, e);
         }
 
-    }
-
-    private List<Diagnostic> getDiagnostics(String rulesFile) throws FileNotFoundException {
-        List<Diagnostic> diagnostics = new ArrayList<>();
-        Yaml yaml = new Yaml(new Constructor(Diagnostic.class));
-        File yamlFile = new File(rulesFile);
-        InputStream inputStream = new FileInputStream(yamlFile);
-        for (Object object : yaml.loadAll(inputStream)) {
-            if (object instanceof Diagnostic) {
-                diagnostics.add((Diagnostic) object);
-            }
-        }
-        return diagnostics;
     }
 
     private Rules getRules(List<Rule> diagnosticRules) {

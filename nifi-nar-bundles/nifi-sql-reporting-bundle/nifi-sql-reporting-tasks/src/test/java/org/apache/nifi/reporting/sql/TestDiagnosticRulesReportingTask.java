@@ -119,7 +119,7 @@ public class TestDiagnosticRulesReportingTask {
     public void testConnectionStatusTable() throws IOException, InitializationException {
         final Map<PropertyDescriptor, String> properties = new HashMap<>();
         properties.put(DiagnosticRulesReportingTask.RULES_FILE_PATH, "src/test/resources/test_diagnostics.yml");
-        properties.put(DiagnosticRulesReportingTask.RULES_FILE_TYPE,"yaml");
+        properties.put(DiagnosticRulesReportingTask.RULES_FILE_TYPE,"YAML");
         reportingTask = initTask(properties);
         reportingTask.onTrigger(context);
         List<Map<String,Object>> metricsList = eventHandlerService.getRows();
@@ -136,7 +136,6 @@ public class TestDiagnosticRulesReportingTask {
         actions.forEach( action -> {
             assertEquals(DiagnosticEventHandlerService.EventAction.LOG, action);
         });
-
 
     }
 
