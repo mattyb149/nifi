@@ -19,13 +19,6 @@ import org.jeasy.rules.api.*;
 import org.jeasy.rules.core.DefaultRulesEngine;
 import org.jeasy.rules.core.RuleBuilder;
 import org.jeasy.rules.mvel.MVELCondition;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.Constructor;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.util.*;
 
 
@@ -33,8 +26,8 @@ import java.util.*;
 @CapabilityDescription("Triggers rules-driven events based on metrics values ")
 public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
-    public static final AllowableValue YAML = new AllowableValue("YAML", "YAML", "YAML file configuration type.");
-    public static final AllowableValue JSON = new AllowableValue("JSON", "JSON", "JSON file configuration type.");
+    private static final AllowableValue YAML = new AllowableValue("YAML", "YAML", "YAML file configuration type.");
+    private static final AllowableValue JSON = new AllowableValue("JSON", "JSON", "JSON file configuration type.");
 
     static final PropertyDescriptor RULES_FILE_PATH = new PropertyDescriptor.Builder()
             .name("rules-file-path")
@@ -67,7 +60,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
     private volatile DiagnosticEventHandlerService diagnosticEventHandlerService;
 
     @Override
-    protected void init(final ReportingInitializationContext config) throws InitializationException {
+    protected void init(final ReportingInitializationContext config) {
         final List<PropertyDescriptor> properties = new ArrayList<>();
         properties.add(RULES_FILE_TYPE);
         properties.add(RULES_FILE_PATH);
