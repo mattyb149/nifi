@@ -122,7 +122,22 @@ public class TestDiagnosticRulesReportingTask {
         properties.put(DiagnosticRulesReportingTask.RULES_FILE_TYPE,"yaml");
         reportingTask = initTask(properties);
         reportingTask.onTrigger(context);
-        assertFalse(eventHandlerService.getRows().isEmpty());
+        List<Map<String,Object>> metricsList = eventHandlerService.getRows();
+        List<DiagnosticEventHandlerService.EventAction> actions = eventHandlerService.getActions();
+        assertFalse(metricsList.isEmpty());
+        assertEquals(4, metricsList.size());
+
+        metricsList.forEach(metric ->{
+            assertTrue(metric.containsKey("connectionId"));
+            assertTrue(metric.containsKey("predictedQueuedCount"));
+            assertTrue(metric.containsKey("predictedTimeToBytesBackpressureMillis"));
+        });
+
+        actions.forEach( action -> {
+            assertEquals(DiagnosticEventHandlerService.EventAction.LOG, action);
+        });
+
+
     }
 
     private TestDiagnosticRulesReportingTask.MockDiagnosticRulesReportingTask initTask(Map<PropertyDescriptor, String> customProperties) throws InitializationException, IOException {
