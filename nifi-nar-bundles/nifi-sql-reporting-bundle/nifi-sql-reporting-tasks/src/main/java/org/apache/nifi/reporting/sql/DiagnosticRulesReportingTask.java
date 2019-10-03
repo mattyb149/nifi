@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.nifi.reporting.sql;
 
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -7,22 +23,29 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.AbstractReportingTask;
-import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.ReportingInitializationContext;
-import org.apache.nifi.reporting.diagnostics.*;
 import org.apache.nifi.reporting.diagnostics.Action;
+import org.apache.nifi.reporting.diagnostics.Diagnostic;
+import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
+import org.apache.nifi.reporting.diagnostics.DiagnosticFactory;
+import org.apache.nifi.reporting.diagnostics.Metrics;
 import org.apache.nifi.reporting.diagnostics.Rule;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.ResultSetRecordSet;
-import org.jeasy.rules.api.*;
+import org.jeasy.rules.api.Facts;
+import org.jeasy.rules.api.Rules;
+import org.jeasy.rules.api.RulesEngine;
 import org.jeasy.rules.core.DefaultRulesEngine;
 import org.jeasy.rules.core.RuleBuilder;
 import org.jeasy.rules.mvel.MVELCondition;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 
-@Tags({"reporting","rules","status", "connection", "processor", "jvm", "metrics", "history", "bulletin", "sql","diagnostic"})
+@Tags({"reporting", "rules", "status", "connection", "processor", "jvm", "metrics", "history", "bulletin", "sql", "diagnostic"})
 @CapabilityDescription("Triggers rules-driven events based on metrics values ")
 public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
@@ -43,7 +66,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
             .displayName("Rules File Type")
             .description("File type for rules definition. Supported file types are YAML and JSON")
             .required(true)
-            .allowableValues(YAML,JSON)
+            .allowableValues(YAML, JSON)
             .defaultValue(YAML.getValue())
             .build();
 
@@ -85,27 +108,25 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
             List<Diagnostic> diagnostics = DiagnosticFactory.createDiagnostics(rulesFile, rulesFileType);
 
-            if(diagnostics == null || diagnostics.isEmpty()){
+            if (diagnostics == null || diagnostics.isEmpty()) {
                 getLogger().warn("No diagnostics available - confirm configuration file has content!");
-            }else{
+            } else {
 
                 final RulesEngine rulesEngine = new DefaultRulesEngine();
 
-                diagnostics.forEach( diagnostic -> {
+                diagnostics.forEach(diagnostic -> {
 
                     final Rules rules = getRules(diagnostic.getRules());
 
                     try {
-                       fireRules(context, rulesEngine, rules, diagnostic.getMetrics());
-                    }
-                    catch (Exception e){
+                        fireRules(context, rulesEngine, rules, diagnostic.getMetrics());
+                    } catch (Exception e) {
                         getLogger().error("Error creating attempting to process metrics: ", new Object[]{e.getMessage()}, e);
                     }
 
                 });
             }
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             getLogger().error("Error opening loading rules", new Object[]{e.getMessage()}, e);
         }
 
@@ -114,7 +135,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
     private Rules getRules(List<Rule> diagnosticRules) {
         final Rules rules = new Rules();
 
-        diagnosticRules.forEach( diagnosticRule -> {
+        diagnosticRules.forEach(diagnosticRule -> {
 
             RuleBuilder ruleBuilder = new RuleBuilder();
             MVELCondition condition = new MVELCondition(diagnosticRule.getCondition());
@@ -123,7 +144,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
                     .priority(diagnosticRule.getPriority())
                     .when(condition);
 
-            for (Action action : diagnosticRule.getActions()){
+            for (Action action : diagnosticRule.getActions()) {
                 ruleBuilder.then(facts -> diagnosticEventHandlerService.sendData(facts.asMap(),
                         DiagnosticEventHandlerService.EventAction.valueOf(action.getType()),
                         action.getAttributes()));
@@ -135,7 +156,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
         return rules;
     }
 
-    private void fireRules(ReportingContext context, final RulesEngine engine, Rules rules, Metrics metrics) throws Exception{
+    private void fireRules(ReportingContext context, final RulesEngine engine, Rules rules, Metrics metrics) throws Exception {
 
         QueryResult queryResult = metricsQueryService.query(context, metrics.getQuery());
         getLogger().debug("Executing query: {}", new Object[]{metrics.getQuery()});
@@ -144,7 +165,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
         Record record;
         while ((record = recordSet.next()) != null) {
             final Facts facts = new Facts();
-            for(String fieldName : metrics.getValues()){
+            for (String fieldName : metrics.getValues()) {
                 facts.put(fieldName, record.getValue(fieldName));
             }
             engine.fire(rules, facts);
