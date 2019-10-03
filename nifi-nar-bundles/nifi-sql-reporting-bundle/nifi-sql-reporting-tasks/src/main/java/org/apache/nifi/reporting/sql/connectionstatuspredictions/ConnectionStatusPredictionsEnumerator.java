@@ -14,21 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.nifi.reporting.sql.connectionstatuspredictions;
 
 import org.apache.calcite.linq4j.Enumerator;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.nifi.controller.status.ConnectionStatus;
-import org.apache.nifi.controller.status.ProcessGroupStatus;
 import org.apache.nifi.controller.status.analytics.ConnectionStatusPredictions;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.sql.util.ConnectionStatusRecursiveIterator;
 
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedList;
 
 public class ConnectionStatusPredictionsEnumerator implements Enumerator<Object> {
     private final ReportingContext context;

@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.nifi.reporting.sql;
 
 import org.apache.nifi.attribute.expression.language.StandardPropertyValue;
@@ -22,9 +38,17 @@ import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 
 public class TestDiagnosticRulesReportingTask {
 
@@ -119,21 +143,21 @@ public class TestDiagnosticRulesReportingTask {
     public void testConnectionStatusTable() throws IOException, InitializationException {
         final Map<PropertyDescriptor, String> properties = new HashMap<>();
         properties.put(DiagnosticRulesReportingTask.RULES_FILE_PATH, "src/test/resources/test_diagnostics.yml");
-        properties.put(DiagnosticRulesReportingTask.RULES_FILE_TYPE,"YAML");
+        properties.put(DiagnosticRulesReportingTask.RULES_FILE_TYPE, "YAML");
         reportingTask = initTask(properties);
         reportingTask.onTrigger(context);
-        List<Map<String,Object>> metricsList = eventHandlerService.getRows();
+        List<Map<String, Object>> metricsList = eventHandlerService.getRows();
         List<DiagnosticEventHandlerService.EventAction> actions = eventHandlerService.getActions();
         assertFalse(metricsList.isEmpty());
         assertEquals(4, metricsList.size());
 
-        metricsList.forEach(metric ->{
+        metricsList.forEach(metric -> {
             assertTrue(metric.containsKey("connectionId"));
             assertTrue(metric.containsKey("predictedQueuedCount"));
             assertTrue(metric.containsKey("predictedTimeToBytesBackpressureMillis"));
         });
 
-        actions.forEach( action -> {
+        actions.forEach(action -> {
             assertEquals(DiagnosticEventHandlerService.EventAction.LOG, action);
         });
 
@@ -172,7 +196,7 @@ public class TestDiagnosticRulesReportingTask {
         return reportingTask;
     }
 
-    private static final class MockDiagnosticRulesReportingTask extends DiagnosticRulesReportingTask{
+    private static final class MockDiagnosticRulesReportingTask extends DiagnosticRulesReportingTask {
 
     }
 }
