@@ -85,10 +85,12 @@ public class TestQueryNiFiReportingTask {
         ConnectionStatus root1ConnectionStatus = new ConnectionStatus();
         root1ConnectionStatus.setId("root1");
         root1ConnectionStatus.setQueuedCount(1000);
+        root1ConnectionStatus.setBackPressureObjectThreshold(1000);
 
         ConnectionStatus root2ConnectionStatus = new ConnectionStatus();
         root2ConnectionStatus.setId("root2");
         root2ConnectionStatus.setQueuedCount(500);
+        root2ConnectionStatus.setBackPressureObjectThreshold(1000);
 
         Collection<ConnectionStatus> rootConnectionStatuses = new ArrayList<>();
         rootConnectionStatuses.add(root1ConnectionStatus);
@@ -136,7 +138,7 @@ public class TestQueryNiFiReportingTask {
     public void testConnectionStatusTable() throws IOException, InitializationException {
         final Map<PropertyDescriptor, String> properties = new HashMap<>();
         properties.put(QueryNiFiReportingTask.RECORD_SINK, "mock-record-sink");
-        properties.put(QueryNiFiReportingTask.QUERY, "select id,queuedCount from CONNECTION_STATUS order by queuedCount desc");
+        properties.put(QueryNiFiReportingTask.QUERY, "select id,queuedCount,isBackPressureEnabled from CONNECTION_STATUS order by queuedCount desc");
         reportingTask = initTask(properties);
         reportingTask.onTrigger(context);
 
@@ -144,7 +146,7 @@ public class TestQueryNiFiReportingTask {
         assertEquals(4, rows.size());
         // Validate the first row
         Map<String, Object> row = rows.get(0);
-        assertEquals(2, row.size()); // Only projected 2 columns
+        assertEquals(3, row.size()); // Only projected 2 columns
         Object id = row.get("id");
         assertTrue(id instanceof String);
         assertEquals("nested", id);
@@ -154,11 +156,13 @@ public class TestQueryNiFiReportingTask {
         id = row.get("id");
         assertEquals("root1", id);
         assertEquals(1000, row.get("queuedCount"));
+        assertEquals(true, row.get("isBackPressureEnabled"));
         // Validate the third row
         row = rows.get(2);
         id = row.get("id");
         assertEquals("root2", id);
         assertEquals(500, row.get("queuedCount"));
+        assertEquals(false, row.get("isBackPressureEnabled"));
         // Validate the fourth row
         row = rows.get(3);
         id = row.get("id");
