@@ -19,14 +19,10 @@ package org.apache.nifi.reporting.sql.connectionstatus;
 
 import org.apache.calcite.linq4j.Enumerator;
 import org.apache.nifi.controller.status.ConnectionStatus;
-import org.apache.nifi.controller.status.ProcessGroupStatus;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.sql.util.ConnectionStatusRecursiveIterator;
 
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedList;
 
 public class ConnectionStatusEnumerator implements Enumerator<Object> {
     private final ReportingContext context;
@@ -97,8 +93,8 @@ public class ConnectionStatusEnumerator implements Enumerator<Object> {
                 status.getBackPressureBytesThreshold(),
                 status.getBackPressureObjectThreshold(),
                 // isBackPressureEnabled
-                Boolean.toString((status.getBackPressureObjectThreshold() > 0 && status.getBackPressureObjectThreshold() <= status.getQueuedCount())
-                        || (status.getBackPressureBytesThreshold() > 0 && status.getBackPressureBytesThreshold() <= status.getMaxQueuedBytes())),
+                ((status.getBackPressureObjectThreshold() > 0 && status.getBackPressureObjectThreshold() <= status.getQueuedCount())
+                        || (status.getBackPressureBytesThreshold() > 0 && status.getBackPressureBytesThreshold() <= status.getQueuedBytes())),
                 status.getInputCount(),
                 status.getInputBytes(),
                 status.getQueuedCount(),
