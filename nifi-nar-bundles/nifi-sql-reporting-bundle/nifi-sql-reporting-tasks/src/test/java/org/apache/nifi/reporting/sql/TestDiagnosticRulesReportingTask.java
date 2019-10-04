@@ -25,6 +25,7 @@ import org.apache.nifi.controller.status.ProcessorStatus;
 import org.apache.nifi.controller.status.analytics.ConnectionStatusPredictions;
 import org.apache.nifi.diagnostics.event.handlers.MockDiagnosticEventHandlerService;
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.reporting.BulletinRepository;
 import org.apache.nifi.reporting.EventAccess;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.ReportingContext;
@@ -47,8 +48,8 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 
 public class TestDiagnosticRulesReportingTask {
 
@@ -143,22 +144,29 @@ public class TestDiagnosticRulesReportingTask {
     public void testConnectionStatusTable() throws IOException, InitializationException {
         final Map<PropertyDescriptor, String> properties = new HashMap<>();
         properties.put(DiagnosticRulesReportingTask.RULES_FILE_PATH, "src/test/resources/test_diagnostics.yml");
-        properties.put(DiagnosticRulesReportingTask.RULES_FILE_TYPE, "YAML");
+        properties.put(DiagnosticRulesReportingTask.RULES_FILE_TYPE,"YAML");
         reportingTask = initTask(properties);
         reportingTask.onTrigger(context);
-        List<Map<String, Object>> metricsList = eventHandlerService.getRows();
-        List<DiagnosticEventHandlerService.EventAction> actions = eventHandlerService.getActions();
+        List<Map<String,Object>> metricsList = eventHandlerService.getRows();
+        List<DiagnosticEventHandlerService.EventAction> defaultActions = eventHandlerService.getDefaultActions();
+        List<DiagnosticEventHandlerService.EventAction> customActions= eventHandlerService.getCustomActions();
         assertFalse(metricsList.isEmpty());
-        assertEquals(4, metricsList.size());
+        assertEquals(6, metricsList.size());
+        assertEquals(4, defaultActions.size());
+        assertEquals(2, customActions.size());
 
-        metricsList.forEach(metric -> {
+        metricsList.forEach(metric ->{
             assertTrue(metric.containsKey("connectionId"));
             assertTrue(metric.containsKey("predictedQueuedCount"));
             assertTrue(metric.containsKey("predictedTimeToBytesBackpressureMillis"));
         });
 
-        actions.forEach(action -> {
+        defaultActions.forEach( action -> {
             assertEquals(DiagnosticEventHandlerService.EventAction.LOG, action);
+        });
+
+        customActions.forEach( action -> {
+            assertEquals(DiagnosticEventHandlerService.EventAction.ALERT, action);
         });
 
     }
@@ -166,6 +174,7 @@ public class TestDiagnosticRulesReportingTask {
     private TestDiagnosticRulesReportingTask.MockDiagnosticRulesReportingTask initTask(Map<PropertyDescriptor, String> customProperties) throws InitializationException, IOException {
 
         final ComponentLog logger = Mockito.mock(ComponentLog.class);
+        final BulletinRepository bulletinRepository = Mockito.mock(BulletinRepository.class);
         reportingTask = new TestDiagnosticRulesReportingTask.MockDiagnosticRulesReportingTask();
         final ReportingInitializationContext initContext = Mockito.mock(ReportingInitializationContext.class);
         Mockito.when(initContext.getIdentifier()).thenReturn(UUID.randomUUID().toString());
@@ -180,6 +189,9 @@ public class TestDiagnosticRulesReportingTask {
 
         context = Mockito.mock(ReportingContext.class);
         Mockito.when(context.getStateManager()).thenReturn(new MockStateManager(reportingTask));
+        Mockito.when(context.getBulletinRepository()).thenReturn(bulletinRepository);
+        Mockito.when(context.createBulletin(anyString(),any(Severity.class), anyString())).thenReturn(null);
+
         Mockito.doAnswer((Answer<PropertyValue>) invocation -> {
             final PropertyDescriptor descriptor = invocation.getArgument(0, PropertyDescriptor.class);
             return new MockPropertyValue(properties.get(descriptor));
@@ -196,7 +208,7 @@ public class TestDiagnosticRulesReportingTask {
         return reportingTask;
     }
 
-    private static final class MockDiagnosticRulesReportingTask extends DiagnosticRulesReportingTask {
+    private static final class MockDiagnosticRulesReportingTask extends DiagnosticRulesReportingTask{
 
     }
 }

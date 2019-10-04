@@ -20,6 +20,7 @@ import org.apache.nifi.components.AbstractConfigurableComponent;
 import org.apache.nifi.controller.ControllerServiceInitializationContext;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
+import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,18 +29,32 @@ import java.util.Map;
 public class MockDiagnosticEventHandlerService extends AbstractConfigurableComponent implements DiagnosticEventHandlerService {
 
     private List<Map<String, Object>> rows = new ArrayList<>();
-    private List<EventAction> actions = new ArrayList<>();
+    private List<EventAction> defaultActions = new ArrayList<>();
+    private List<EventAction> customActions = new ArrayList<>();
 
     @Override
     public void sendData(Map<String, Object> metrics, EventAction action, Map<String, String> attributes) {
 
-        if (metrics != null && !metrics.isEmpty()) {
+        if(metrics != null && !metrics.isEmpty()) {
             rows.add(metrics);
         }
-        if (action != null) {
-            actions.add(action);
+        if(action != null){
+            defaultActions.add(action);
         }
 
+    }
+
+    @Override
+    public void sendData(Map<String, Object> metrics, EventAction action, Map<String, String> attributes, Map<EventAction, EventHandler> handlerMap) {
+
+        if(handlerMap == null || !handlerMap.containsKey(action)){
+            sendData(metrics, action, attributes);
+
+        }else if (action != null){
+            handlerMap.get(action).execute(metrics, attributes);
+            rows.add(metrics);
+            customActions.add(action);
+        }
     }
 
     @Override
@@ -51,8 +66,12 @@ public class MockDiagnosticEventHandlerService extends AbstractConfigurableCompo
         return rows;
     }
 
-    public List<EventAction> getActions() {
-        return actions;
+    public List<EventAction> getDefaultActions() {
+        return defaultActions;
+    }
+
+    public List<EventAction> getCustomActions() {
+        return customActions;
     }
 
     @Override

@@ -31,6 +31,7 @@ import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
 import org.apache.nifi.reporting.diagnostics.DiagnosticFactory;
 import org.apache.nifi.reporting.diagnostics.Metrics;
 import org.apache.nifi.reporting.diagnostics.Rule;
+import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.ResultSetRecordSet;
 import org.jeasy.rules.api.Facts;
@@ -39,10 +40,6 @@ import org.jeasy.rules.api.RulesEngine;
 import org.jeasy.rules.core.DefaultRulesEngine;
 import org.jeasy.rules.core.RuleBuilder;
 import org.jeasy.rules.mvel.MVELCondition;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 
 @Tags({"reporting", "rules", "status", "connection", "processor", "jvm", "metrics", "history", "bulletin", "sql", "diagnostic"})
@@ -116,7 +113,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
                 diagnostics.forEach(diagnostic -> {
 
-                    final Rules rules = getRules(diagnostic.getRules());
+                    final Rules rules = getRules(diagnostic.getRules(), context);
 
                     try {
                         fireRules(context, rulesEngine, rules, diagnostic.getMetrics());
@@ -132,7 +129,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
 
     }
 
-    private Rules getRules(List<Rule> diagnosticRules) {
+    private Rules getRules(List<Rule> diagnosticRules, ReportingContext context) {
         final Rules rules = new Rules();
 
         diagnosticRules.forEach(diagnosticRule -> {
@@ -147,7 +144,7 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
             for (Action action : diagnosticRule.getActions()) {
                 ruleBuilder.then(facts -> diagnosticEventHandlerService.sendData(facts.asMap(),
                         DiagnosticEventHandlerService.EventAction.valueOf(action.getType()),
-                        action.getAttributes()));
+                        action.getAttributes(), createCustomAlertHandler(context)));
             }
 
             rules.register(ruleBuilder.build());
@@ -161,18 +158,40 @@ public class DiagnosticRulesReportingTask extends AbstractReportingTask {
         QueryResult queryResult = metricsQueryService.query(context, metrics.getQuery());
         getLogger().debug("Executing query: {}", new Object[]{metrics.getQuery()});
         ResultSetRecordSet recordSet = metricsQueryService.getResultSetRecordSet(queryResult);
-
         Record record;
-        while ((record = recordSet.next()) != null) {
-            final Facts facts = new Facts();
-            for (String fieldName : metrics.getValues()) {
-                facts.put(fieldName, record.getValue(fieldName));
+        try {
+            while ((record = recordSet.next()) != null) {
+                final Facts facts = new Facts();
+                for (String fieldName : metrics.getValues()) {
+                    facts.put(fieldName, record.getValue(fieldName));
+                }
+                engine.fire(rules, facts);
             }
-            engine.fire(rules, facts);
+        } finally {
+            metricsQueryService.closeQuietly(recordSet);
         }
 
-        metricsQueryService.closeQuietly(recordSet);
+    }
 
+    private Map<DiagnosticEventHandlerService.EventAction, EventHandler> createCustomAlertHandler(final ReportingContext context) {
+        Map<DiagnosticEventHandlerService.EventAction, EventHandler> handlerMap = new HashMap<>();
+        EventHandler alertHandler = (metrics, attributes) -> {
+            if (context.getBulletinRepository() != null) {
+                final String category = attributes.getOrDefault("category", "Diagnostic Event");
+                final String message = attributes.getOrDefault("message", "Diagnostic Event Alert");
+                final String level = attributes.getOrDefault("severity", attributes.getOrDefault("logLevel", "info"));
+                Severity severity;
+                try {
+                    severity = Severity.valueOf(level.toUpperCase());
+                } catch (IllegalArgumentException iae) {
+                    severity = Severity.INFO;
+                }
+                BulletinRepository bulletinRepository = context.getBulletinRepository();
+                bulletinRepository.addBulletin(context.createBulletin(category, severity, message));
+            }
+        };
+        handlerMap.put(DiagnosticEventHandlerService.EventAction.ALERT, alertHandler);
+        return handlerMap;
     }
 
 }

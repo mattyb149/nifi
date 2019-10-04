@@ -17,15 +17,18 @@
 package org.apache.nifi.reporting.diagnostics;
 
 import org.apache.nifi.controller.ControllerService;
+import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
 
 import java.util.Map;
 
 public interface DiagnosticEventHandlerService extends ControllerService {
 
     enum EventAction {
-        LOG;
+        ALERT, LOG, SEND;
     }
 
     void sendData(final Map<String, Object> metrics, EventAction action, final Map<String, String> attributes);
+
+    void sendData(final Map<String, Object> metrics, EventAction action, final Map<String,String> attributes, Map<EventAction, EventHandler> handlerMap);
 
 }
