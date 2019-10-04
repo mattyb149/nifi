@@ -30,6 +30,7 @@ import org.apache.nifi.reporting.EventAccess;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.ReportingInitializationContext;
+import org.apache.nifi.reporting.Severity;
 import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
 import org.apache.nifi.state.MockStateManager;
 import org.apache.nifi.util.MockPropertyValue;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.any;

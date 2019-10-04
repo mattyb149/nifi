@@ -23,8 +23,10 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.AbstractReportingTask;
+import org.apache.nifi.reporting.BulletinRepository;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.ReportingInitializationContext;
+import org.apache.nifi.reporting.Severity;
 import org.apache.nifi.reporting.diagnostics.Action;
 import org.apache.nifi.reporting.diagnostics.Diagnostic;
 import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
@@ -40,6 +42,12 @@ import org.jeasy.rules.api.RulesEngine;
 import org.jeasy.rules.core.DefaultRulesEngine;
 import org.jeasy.rules.core.RuleBuilder;
 import org.jeasy.rules.mvel.MVELCondition;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 @Tags({"reporting", "rules", "status", "connection", "processor", "jvm", "metrics", "history", "bulletin", "sql", "diagnostic"})
