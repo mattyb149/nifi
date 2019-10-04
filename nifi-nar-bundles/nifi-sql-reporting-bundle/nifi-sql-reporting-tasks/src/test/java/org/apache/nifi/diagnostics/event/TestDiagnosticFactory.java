@@ -81,7 +81,7 @@ public class TestDiagnosticFactory {
         checkDiagnostic = rules2.get(0).getName().equals("Queue Size") && rules2.get(0).getDescription().equals("Queue size check greater than 1000")
                 && rules2.get(0).getPriority() == 1 && rules2.get(0).getCondition().equals("predictedQueuedCount == 1000") && checkDiagnostic;
 
-        checkDiagnostic = rules2.get(1).getName().equals("Time To Back Pressure") && rules2.get(1).getDescription().equals("Back pressure time less than 5 minutes")
+        checkDiagnostic = rules2.get(1).getName().equals("Time To Back Pressure") && rules2.get(1).getDescription().equals("Back pressure time plenty of time")
                 && rules2.get(1).getPriority() == 2 && rules2.get(1).getCondition().equals("predictedTimeToBytesBackpressureMillis > 100000000") && checkDiagnostic;
 
         return checkDiagnostic;
