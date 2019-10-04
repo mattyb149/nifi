@@ -9,7 +9,7 @@ rules:
     actions:
       - type: "LOG"
         attributes:
-          logLevel: "debug"
+          logLevel: "DEBUG"
           message: "Queue Size Over 50 is detected!"
   - name: "Time To Back Pressure"
     description: "Back pressure time less than 5 minutes"
@@ -18,7 +18,11 @@ rules:
     actions:
       - type: "LOG"
         attributes:
-          logLevel: "warn"
+          logLevel: "INFO"
+          message: "Back Pressure prediction less than 5 minutes!"
+      - type: "ALERT"
+        attributes:
+          severity: "INFO"
           message: "Back Pressure prediction less than 5 minutes!"
 metrics:
   values:
@@ -36,16 +40,16 @@ rules:
     actions:
       - type: "LOG"
         attributes:
-          logLevel: "debug"
+          logLevel: "DEBUG"
           message: "Queue Size Over 1000 is detected!"
   - name: "Time To Back Pressure"
-    description: "Back pressure time less than 5 minutes"
+    description: "Back pressure time plenty of time"
     priority: 2
     condition: "predictedTimeToBytesBackpressureMillis > 100000000"
     actions:
       - type: "LOG"
         attributes:
-          logLevel: "debug"
+          logLevel: "DEBUG"
           message: "Back Pressure no time soon, relax"
 metrics:
   values:
