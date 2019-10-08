@@ -5,7 +5,7 @@ import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
+import org.apache.nifi.reporting.diagnostics.MetricsEventHandlerService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +22,7 @@ public class TestProcessor extends AbstractProcessor {
         properties.add(new PropertyDescriptor.Builder()
                 .name("diagnostic-event-handler-service-test")
                 .description("Diagnostic event handler service")
-                .identifiesControllerService(DiagnosticEventHandlerService.class)
+                .identifiesControllerService(MetricsEventHandlerService.class)
                 .required(true)
                 .build());
         return properties;
