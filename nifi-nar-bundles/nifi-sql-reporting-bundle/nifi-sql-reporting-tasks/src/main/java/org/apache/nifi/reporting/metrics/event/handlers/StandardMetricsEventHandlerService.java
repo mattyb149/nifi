@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.nifi.reporting.diagnostics.event.handlers;
+package org.apache.nifi.reporting.metrics.event.handlers;
 
 
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.controller.ControllerServiceInitializationContext;
 import org.apache.nifi.reporting.InitializationException;
-import org.apache.nifi.reporting.diagnostics.MetricsEventHandlerService;
+import org.apache.nifi.reporting.metrics.MetricsEventHandlerService;
 import org.apache.nifi.rules.Action;
 
 import java.util.List;
