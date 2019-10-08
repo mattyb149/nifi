@@ -19,41 +19,44 @@ package org.apache.nifi.diagnostics.event.handlers;
 import org.apache.nifi.components.AbstractConfigurableComponent;
 import org.apache.nifi.controller.ControllerServiceInitializationContext;
 import org.apache.nifi.reporting.InitializationException;
-import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
+import org.apache.nifi.reporting.diagnostics.MetricsEventHandlerService;
 import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
+import org.apache.nifi.rules.Action;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class MockDiagnosticEventHandlerService extends AbstractConfigurableComponent implements DiagnosticEventHandlerService {
+public class MockMetricsEventHandlerService extends AbstractConfigurableComponent implements MetricsEventHandlerService {
 
     private List<Map<String, Object>> rows = new ArrayList<>();
-    private List<EventAction> defaultActions = new ArrayList<>();
-    private List<EventAction> customActions = new ArrayList<>();
+    private List<String> defaultActions = new ArrayList<>();
+    private List<String> customActions = new ArrayList<>();
+
 
     @Override
-    public void sendData(Map<String, Object> metrics, EventAction action, Map<String, String> attributes) {
-
-        if(metrics != null && !metrics.isEmpty()) {
-            rows.add(metrics);
+    public void process(Map<String, Object> metrics, List<Action> actions) {
+        rows.add(metrics);
+        if(actions != null && !actions.isEmpty()){
+            actions.forEach(action -> {
+                defaultActions.add(action.getType());
+            });
         }
-        if(action != null){
-            defaultActions.add(action);
-        }
-
     }
 
     @Override
-    public void sendData(Map<String, Object> metrics, EventAction action, Map<String, String> attributes, Map<EventAction, EventHandler> handlerMap) {
-
-        if(handlerMap == null || !handlerMap.containsKey(action)){
-            sendData(metrics, action, attributes);
-
-        }else if (action != null){
-            handlerMap.get(action).execute(metrics, attributes);
-            rows.add(metrics);
-            customActions.add(action);
+    public void process(Map<String, Object> metrics, List<Action> actions, Map<String, EventHandler> handlerMap) {
+        rows.add(metrics);
+        if(actions != null && !actions.isEmpty()){
+            actions.forEach(action -> {
+                if(handlerMap != null && !handlerMap.isEmpty()){
+                    if (handlerMap.containsKey(action.getType())) {
+                        customActions.add(action.getType());
+                    } else {
+                        defaultActions.add(action.getType());
+                    }
+                }
+            });
         }
     }
 
@@ -66,11 +69,11 @@ public class MockDiagnosticEventHandlerService extends AbstractConfigurableCompo
         return rows;
     }
 
-    public List<EventAction> getDefaultActions() {
+    public List<String> getDefaultActions() {
         return defaultActions;
     }
 
-    public List<EventAction> getCustomActions() {
+    public List<String> getCustomActions() {
         return customActions;
     }
 

@@ -1,40 +1,25 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package org.apache.nifi.reporting.diagnostics;
+package org.apache.nifi.rules;
 
 import java.util.List;
 
 public class Rule {
-
     private String name;
     private String description;
     private Integer priority;
     private String condition;
     private List<Action> actions;
+    private List<String> facts;
 
     public Rule() {
     }
 
-    public Rule(String name, String description, Integer priority, String condition, List<Action> actions) {
+    public Rule(String name, String description, Integer priority, String condition, List<Action> actions, List<String> facts) {
         this.name = name;
         this.description = description;
         this.priority = priority;
         this.condition = condition;
         this.actions = actions;
+        this.facts = facts;
     }
 
     public String getName() {
@@ -75,5 +60,13 @@ public class Rule {
 
     public void setActions(List<Action> actions) {
         this.actions = actions;
+    }
+
+    public List<String> getFacts() {
+        return facts;
+    }
+
+    public void setFacts(List<String> facts) {
+        this.facts = facts;
     }
 }
