@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.nifi.diagnostics.event.handlers;
+package org.apache.nifi.reporting.metrics.event.handlers;
 
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.logging.LogLevel;

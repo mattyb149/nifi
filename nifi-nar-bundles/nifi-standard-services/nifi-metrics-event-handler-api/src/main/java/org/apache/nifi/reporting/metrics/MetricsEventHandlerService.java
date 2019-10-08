@@ -14,15 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.nifi.reporting.diagnostics;
+package org.apache.nifi.reporting.metrics;
 
+import org.apache.nifi.annotation.documentation.CapabilityDescription;
+import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.controller.ControllerService;
-import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
+import org.apache.nifi.reporting.metrics.event.handlers.EventHandler;
 import org.apache.nifi.rules.Action;
 
 import java.util.List;
 import java.util.Map;
 
+@Tags({"metrics", "rules", "events"})
+@CapabilityDescription("Specifies a Controller Service executes actions retrieved from a rules engine for a given set of metrics")
 public interface MetricsEventHandlerService extends ControllerService {
 
 

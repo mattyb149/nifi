@@ -14,8 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.nifi.rules;
+package org.apache.nifi.reporting.metrics.event.handlers;
 
-public interface ActionHandler {
-    void execute(Action action);
+import java.util.Map;
+
+public interface EventHandler {
+
+    void execute(final Map<String,Object> metrics,final Map<String,String> attributes);
+
 }
