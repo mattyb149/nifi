@@ -25,8 +25,8 @@ import org.apache.nifi.reporting.BulletinRepository;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.reporting.ReportingInitializationContext;
 import org.apache.nifi.reporting.Severity;
-import org.apache.nifi.reporting.diagnostics.MetricsEventHandlerService;
-import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
+import org.apache.nifi.reporting.metrics.MetricsEventHandlerService;
+import org.apache.nifi.reporting.metrics.event.handlers.EventHandler;
 import org.apache.nifi.rules.Action;
 import org.apache.nifi.rules.engine.RulesEngineService;
 import org.apache.nifi.serialization.record.Record;
@@ -78,6 +78,8 @@ public class MetricsEventReportingTask extends AbstractReportingTask {
     protected void init(final ReportingInitializationContext config) {
         final List<PropertyDescriptor> properties = new ArrayList<>();
         properties.add(METRICS_EVENT_HANDLER);
+        properties.add(RULES_ENGINE);
+        properties.add(QUERY);
         this.properties = Collections.unmodifiableList(properties);
         metricsQueryService = new MetricsSqlQueryService(getLogger());
     }
@@ -111,7 +113,11 @@ public class MetricsEventReportingTask extends AbstractReportingTask {
                     facts.put(fieldName, record.getValue(fieldName));
                 }
                 List<Action> actions = engine.fireRules(facts);
-                metricsEventHandlerService.process(facts, actions, createCustomAlertHandler(context));
+                if(actions == null ||  actions.isEmpty()){
+                    getLogger().debug("No actions required for provided facts.");
+                } else {
+                    metricsEventHandlerService.process(facts, actions, createCustomAlertHandler(context));
+                }
             }
         } finally {
             metricsQueryService.closeQuietly(recordSet);
