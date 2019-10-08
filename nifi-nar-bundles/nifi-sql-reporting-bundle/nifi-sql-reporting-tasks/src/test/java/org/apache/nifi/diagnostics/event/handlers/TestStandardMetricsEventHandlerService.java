@@ -1,12 +1,14 @@
 package org.apache.nifi.diagnostics.event.handlers;
 
 
+import com.google.common.collect.Lists;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.reporting.InitializationException;
-import org.apache.nifi.reporting.diagnostics.DiagnosticEventHandlerService;
+import org.apache.nifi.reporting.diagnostics.MetricsEventHandlerService;
 import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
-import org.apache.nifi.reporting.diagnostics.event.handlers.StandardDiagnosticEventHandlerService;
+import org.apache.nifi.reporting.diagnostics.event.handlers.StandardMetricsEventHandlerService;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.nifi.rules.Action;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.junit.Test;
@@ -22,17 +24,18 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.anyMap;
 
-public class TestStandardDiagnosticEventHandlerService {
+public class TestStandardMetricsEventHandlerService {
 
     @Test
     public void testWarningLogged() throws InitializationException, IOException{
 
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardDiagnosticEventHandlerService service = new MockStandardDiagnosticEventHandlerService(mockComponentLog);
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
+
         final String expectedMessage = "--------------------------------------------------\n" +
                 "Event Message: This is a warning\n" +
                 "Event Metrics:\n" +
@@ -42,20 +45,24 @@ public class TestStandardDiagnosticEventHandlerService {
 
         attributes.put("logLevel","warn");
         attributes.put("message","This is a warning");
-
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("default-diagnostic-event-handler-service",service);
+        runner.addControllerService("standard-metric-event-handler-service",service);
         runner.enableControllerService(service);
         runner.assertValid(service);
 
-        final DiagnosticEventHandlerService eventHandlerService = (DiagnosticEventHandlerService) runner.getProcessContext()
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
                 .getControllerServiceLookup()
-                .getControllerService("default-diagnostic-event-handler-service");
+                .getControllerService("standard-metric-event-handler-service");
 
-        assertThat(eventHandlerService, instanceOf(StandardDiagnosticEventHandlerService.class));
-        eventHandlerService.sendData(metrics, DiagnosticEventHandlerService.EventAction.LOG,attributes);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+
+        final Action action = new Action();
+        action.setType("LOG");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
+
         String logMessage = mockComponentLog.getWarnMessage();
 
         assertTrue(StringUtils.isNotEmpty(logMessage));
@@ -68,7 +75,7 @@ public class TestStandardDiagnosticEventHandlerService {
 
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardDiagnosticEventHandlerService service = new MockStandardDiagnosticEventHandlerService(mockComponentLog);
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -84,16 +91,19 @@ public class TestStandardDiagnosticEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("default-diagnostic-event-handler-service",service);
+        runner.addControllerService("standard-metric-event-handler-service",service);
         runner.enableControllerService(service);
         runner.assertValid(service);
 
-        final DiagnosticEventHandlerService eventHandlerService = (DiagnosticEventHandlerService) runner.getProcessContext()
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
                 .getControllerServiceLookup()
-                .getControllerService("default-diagnostic-event-handler-service");
+                .getControllerService("standard-metric-event-handler-service");
 
-        assertThat(eventHandlerService, instanceOf(StandardDiagnosticEventHandlerService.class));
-        eventHandlerService.sendData(metrics, DiagnosticEventHandlerService.EventAction.ALERT,attributes);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        final Action action = new Action();
+        action.setType("ALERT");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
         String logMessage = mockComponentLog.getWarnMessage();
 
         assertTrue(StringUtils.isNotEmpty(logMessage));
@@ -106,7 +116,7 @@ public class TestStandardDiagnosticEventHandlerService {
 
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardDiagnosticEventHandlerService service = new MockStandardDiagnosticEventHandlerService(mockComponentLog);
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -121,18 +131,20 @@ public class TestStandardDiagnosticEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("default-diagnostic-event-handler-service",service);
+        runner.addControllerService("standard-metric-event-handler-service",service);
         runner.enableControllerService(service);
         runner.assertValid(service);
 
-        final DiagnosticEventHandlerService eventHandlerService = (DiagnosticEventHandlerService) runner.getProcessContext()
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
                 .getControllerServiceLookup()
-                .getControllerService("default-diagnostic-event-handler-service");
+                .getControllerService("standard-metric-event-handler-service");
 
-        assertThat(eventHandlerService, instanceOf(StandardDiagnosticEventHandlerService.class));
-        eventHandlerService.sendData(metrics, DiagnosticEventHandlerService.EventAction.ALERT,attributes);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        final Action action = new Action();
+        action.setType("ALERT");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
         String logMessage = mockComponentLog.getWarnMessage();
-
         assertTrue(StringUtils.isNotEmpty(logMessage));
         assertEquals(expectedMessage,logMessage);
 
@@ -143,7 +155,7 @@ public class TestStandardDiagnosticEventHandlerService {
 
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardDiagnosticEventHandlerService service = new MockStandardDiagnosticEventHandlerService(mockComponentLog);
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -158,16 +170,19 @@ public class TestStandardDiagnosticEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("default-diagnostic-event-handler-service",service);
+        runner.addControllerService("standard-metric-event-handler-service",service);
         runner.enableControllerService(service);
         runner.assertValid(service);
 
-        final DiagnosticEventHandlerService eventHandlerService = (DiagnosticEventHandlerService) runner.getProcessContext()
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
                 .getControllerServiceLookup()
-                .getControllerService("default-diagnostic-event-handler-service");
+                .getControllerService("standard-metric-event-handler-service");
 
-        assertThat(eventHandlerService, instanceOf(StandardDiagnosticEventHandlerService.class));
-        eventHandlerService.sendData(metrics, DiagnosticEventHandlerService.EventAction.ALERT,attributes);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        final Action action = new Action();
+        action.setType("ALERT");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
         String logMessage = mockComponentLog.getWarnMessage();
 
         assertTrue(StringUtils.isNotEmpty(logMessage));
@@ -180,9 +195,9 @@ public class TestStandardDiagnosticEventHandlerService {
 
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardDiagnosticEventHandlerService service = new MockStandardDiagnosticEventHandlerService(mockComponentLog);
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
         EventHandler mockHandler = Mockito.mock(EventHandler.class);
-        Map<DiagnosticEventHandlerService.EventAction,EventHandler> mockHandlerMap = new HashMap<>();
+        Map<String,EventHandler> mockHandlerMap = new HashMap<>();
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -191,17 +206,20 @@ public class TestStandardDiagnosticEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("default-diagnostic-event-handler-service",service);
+        runner.addControllerService("standard-metric-event-handler-service",service);
         runner.enableControllerService(service);
         runner.assertValid(service);
 
-        final DiagnosticEventHandlerService eventHandlerService = (DiagnosticEventHandlerService) runner.getProcessContext()
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
                 .getControllerServiceLookup()
-                .getControllerService("default-diagnostic-event-handler-service");
+                .getControllerService("standard-metric-event-handler-service");
 
-        assertThat(eventHandlerService, instanceOf(StandardDiagnosticEventHandlerService.class));
-        mockHandlerMap.put(DiagnosticEventHandlerService.EventAction.ALERT, mockHandler);
-        eventHandlerService.sendData(metrics, DiagnosticEventHandlerService.EventAction.ALERT,attributes,mockHandlerMap);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        mockHandlerMap.put("ALERT", mockHandler);
+        final Action action = new Action();
+        action.setType("LOG");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action),mockHandlerMap);
         Mockito.verify(mockHandler, Mockito.times(1)).execute(anyMap(), anyMap());
     }
 
@@ -210,7 +228,7 @@ public class TestStandardDiagnosticEventHandlerService {
 
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardDiagnosticEventHandlerService service = new MockStandardDiagnosticEventHandlerService(mockComponentLog);
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -223,16 +241,19 @@ public class TestStandardDiagnosticEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("default-diagnostic-event-handler-service",service);
+        runner.addControllerService("standard-metric-event-handler-service",service);
         runner.enableControllerService(service);
         runner.assertValid(service);
 
-        final DiagnosticEventHandlerService eventHandlerService = (DiagnosticEventHandlerService) runner.getProcessContext()
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
                 .getControllerServiceLookup()
-                .getControllerService("default-diagnostic-event-handler-service");
+                .getControllerService("standard-metric-event-handler-service");
 
-        assertThat(eventHandlerService, instanceOf(StandardDiagnosticEventHandlerService.class));
-        eventHandlerService.sendData(metrics, DiagnosticEventHandlerService.EventAction.LOG,attributes);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        final Action action = new Action();
+        action.setType("LOG");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
         String logMessage = mockComponentLog.getInfoMessage();
         assertTrue(StringUtils.isNotEmpty(logMessage));
         assertEquals(expectedMessage,logMessage);
@@ -244,7 +265,7 @@ public class TestStandardDiagnosticEventHandlerService {
 
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardDiagnosticEventHandlerService service = new MockStandardDiagnosticEventHandlerService(mockComponentLog);
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -260,27 +281,30 @@ public class TestStandardDiagnosticEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("default-diagnostic-event-handler-service",service);
+        runner.addControllerService("standard-metric-event-handler-service",service);
         runner.enableControllerService(service);
         runner.assertValid(service);
 
-        final DiagnosticEventHandlerService eventHandlerService = (DiagnosticEventHandlerService) runner.getProcessContext()
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
                 .getControllerServiceLookup()
-                .getControllerService("default-diagnostic-event-handler-service");
+                .getControllerService("standard-metric-event-handler-service");
 
-        assertThat(eventHandlerService, instanceOf(StandardDiagnosticEventHandlerService.class));
-        eventHandlerService.sendData(metrics, DiagnosticEventHandlerService.EventAction.LOG,attributes);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        final Action action = new Action();
+        action.setType("LOG");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
         String logMessage = mockComponentLog.getInfoMessage();
         assertTrue(StringUtils.isNotEmpty(logMessage));
         assertEquals(expectedMessage,logMessage);
 
     }
 
-    private class MockStandardDiagnosticEventHandlerService extends StandardDiagnosticEventHandlerService {
+    private class MockStandardMetricsEventHandlerService extends StandardMetricsEventHandlerService {
 
         private ComponentLog testLogger;
 
-        public MockStandardDiagnosticEventHandlerService(ComponentLog testLogger) {
+        public MockStandardMetricsEventHandlerService(ComponentLog testLogger) {
             super();
             this.testLogger = testLogger;
         }

@@ -98,7 +98,8 @@
 	<module>nifi-network-bundle</module>
         <module>nifi-prometheus-bundle</module>
         <module>nifi-sql-reporting-bundle</module>
-  </modules>
+        <module>nifi-easyrules-bundle</module>
+    </modules>
 
     <build>
         <plugins>

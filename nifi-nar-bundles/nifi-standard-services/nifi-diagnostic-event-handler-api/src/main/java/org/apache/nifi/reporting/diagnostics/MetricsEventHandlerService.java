@@ -16,35 +16,19 @@
  */
 package org.apache.nifi.reporting.diagnostics;
 
+import org.apache.nifi.controller.ControllerService;
+import org.apache.nifi.reporting.diagnostics.event.handlers.EventHandler;
+import org.apache.nifi.rules.Action;
+
 import java.util.List;
+import java.util.Map;
 
-public class Metrics {
+public interface MetricsEventHandlerService extends ControllerService {
 
-    private List<String> values;
-    private String query;
 
-    public Metrics() {
-    }
+    void process(final Map<String, Object> metrics, List<Action> actions);
 
-    public Metrics(List<String> values, String query) {
-        this.values = values;
-        this.query = query;
-    }
+    void process(final Map<String, Object> metrics, List<Action> actions, Map<String, EventHandler> handlerMap);
 
-    public List<String> getValues() {
-        return values;
-    }
-
-    public void setValues(List<String> values) {
-        this.values = values;
-    }
-
-    public String getQuery() {
-        return query;
-    }
-
-    public void setQuery(String query) {
-        this.query = query;
-    }
 
 }
