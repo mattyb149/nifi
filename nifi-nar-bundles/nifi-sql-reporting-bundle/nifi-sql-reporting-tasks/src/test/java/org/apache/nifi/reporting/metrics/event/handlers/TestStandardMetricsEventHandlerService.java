@@ -314,6 +314,77 @@ public class TestStandardMetricsEventHandlerService {
 
     }
 
+    @Test
+    public void testMvelExpression() throws InitializationException, IOException{
+
+        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
+        final MockComponentLog mockComponentLog = new MockComponentLog();
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
+
+        final Map<String,String> attributes = new HashMap<>();
+        final Map<String,Object> metrics = new HashMap<>();
+        final String expectedMessage = "Expression was executed successfully:";
+
+        attributes.put("command","System.out.println(jvmHeap)");
+        attributes.put("type","MVEL");
+
+        metrics.put("jvmHeap","1000000");
+        metrics.put("cpu","90");
+
+        runner.addControllerService("standard-metric-event-handler-service",service);
+        runner.enableControllerService(service);
+        runner.assertValid(service);
+
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
+                .getControllerServiceLookup()
+                .getControllerService("standard-metric-event-handler-service");
+
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        final Action action = new Action();
+        action.setType("EXPRESSION");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
+        String logMessage = mockComponentLog.getDebugMessage();
+        assertTrue(StringUtils.isNotEmpty(logMessage));
+        assertTrue(logMessage.startsWith(expectedMessage));
+    }
+
+    @Test
+    public void testSpelExpression() throws InitializationException, IOException{
+
+        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
+        final MockComponentLog mockComponentLog = new MockComponentLog();
+        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
+
+        final Map<String,String> attributes = new HashMap<>();
+        final Map<String,Object> metrics = new HashMap<>();
+        final String expectedMessage = "Expression was executed successfully with result:";
+
+        attributes.put("command","#jvmHeap + ' is large'");
+        attributes.put("type","SPEL");
+
+        metrics.put("jvmHeap","1000000");
+        metrics.put("cpu","90");
+
+        runner.addControllerService("standard-metric-event-handler-service",service);
+        runner.enableControllerService(service);
+        runner.assertValid(service);
+
+        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
+                .getControllerServiceLookup()
+                .getControllerService("standard-metric-event-handler-service");
+
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        final Action action = new Action();
+        action.setType("EXPRESSION");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
+        String logMessage = mockComponentLog.getDebugMessage();
+        assertTrue(StringUtils.isNotEmpty(logMessage));
+        assertTrue(logMessage.startsWith(expectedMessage));
+    }
+
+
     private class MockStandardMetricsEventHandlerService extends StandardMetricsEventHandlerService {
 
         private ComponentLog testLogger;

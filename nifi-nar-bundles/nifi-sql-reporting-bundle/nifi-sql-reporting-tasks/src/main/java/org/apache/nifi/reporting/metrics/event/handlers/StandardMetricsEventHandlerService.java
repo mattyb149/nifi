@@ -29,17 +29,19 @@ import java.util.Map;
 public class StandardMetricsEventHandlerService extends AbstractControllerService implements MetricsEventHandlerService {
 
     enum EventAction {
-        ALERT, LOG, SEND;
+        ALERT, LOG, SEND, EXPRESSION;
     }
 
     private EventHandler logHandler;
     private EventHandler alertHandler;
+    private EventHandler expressionHandler;
 
     @Override
     protected void init(ControllerServiceInitializationContext config) throws InitializationException {
         super.init(config);
         logHandler = new LogHandler(getLogger());
         alertHandler = new AlertHandler(getLogger());
+        expressionHandler = new ExpressionHandler(getLogger());
     }
 
     @Override
@@ -89,6 +91,9 @@ public class StandardMetricsEventHandlerService extends AbstractControllerServic
                 break;
             case ALERT:
                 alertHandler.execute(metrics, attributes);
+                break;
+            case EXPRESSION:
+                expressionHandler.execute(metrics, attributes);
                 break;
             default:
                 getLogger().warn("Provided action not available: {}", new Object[]{action.toString()});

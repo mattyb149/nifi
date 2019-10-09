@@ -21,14 +21,15 @@ import org.junit.Test;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 public class TestRulesFactory {
     @Test
-    public void testCreateDiagnosticsFromYaml(){
+    public void testCreateRulesFromNiFiYaml(){
         try {
-            String testYamlFile = "src/test/resources/test_rules.yml";
-            List<Rule> rules = RulesFactory.createRules(testYamlFile,"YAML");
+            String testYamlFile = "src/test/resources/test_nifi_rules.yml";
+            List<Rule> rules = RulesFactory.createRules(testYamlFile,"YAML", "NIFI");
             assertEquals(2, rules.size());
             assert confirmEntries(rules);
         }catch (Exception ex){
@@ -37,10 +38,35 @@ public class TestRulesFactory {
     }
 
     @Test
-    public void testCreateDiagnosticsFromJson(){
+    public void testCreateRulesFromMvelYaml(){
         try {
-            String testJsonFile = "src/test/resources/test_rules.json";
-            List<Rule> rules = RulesFactory.createRules(testJsonFile,"JSON");
+            String testYamlFile = "src/test/resources/test_mvel_rules.yml";
+            List<Rule> rules = RulesFactory.createRules(testYamlFile,"YAML", "MVEL");
+            assertEquals(2, rules.size());
+            assert confirmEntries(rules);
+            assertSame("EXPRESSION", rules.get(0).getActions().get(0).getType());
+        }catch (Exception ex){
+            fail("Unexpected exception occurred: "+ex.getMessage());
+        }
+    }
+
+    @Test
+    public void testCreateRulesFromSpelYaml(){
+        try {
+            String testYamlFile = "src/test/resources/test_spel_rules.yml";
+            List<Rule> rules = RulesFactory.createRules(testYamlFile,"YAML", "SPEL");
+            assertEquals(2, rules.size());
+            assertSame("EXPRESSION", rules.get(0).getActions().get(0).getType());
+        }catch (Exception ex){
+            fail("Unexpected exception occurred: "+ex.getMessage());
+        }
+    }
+
+    @Test
+    public void testCreateRulesFromNiFiJson(){
+        try {
+            String testJsonFile = "src/test/resources/test_nifi_rules.json";
+            List<Rule> rules = RulesFactory.createRules(testJsonFile,"JSON", "NIFI");
             assertEquals(2, rules.size());
             assert confirmEntries(rules);
         }catch (Exception ex){
@@ -49,14 +75,50 @@ public class TestRulesFactory {
     }
 
     @Test
-    public void testFakeTypeNotSupport(){
+    public void testCreateRulesFromMvelJson(){
         try {
-            RulesFactory.createRules("FAKEFILE", "FAKE");
+            String testJsonFile = "src/test/resources/test_mvel_rules.json";
+            List<Rule> rules = RulesFactory.createRules(testJsonFile,"JSON", "MVEL");
+            assertEquals(2, rules.size());
+            assertSame("EXPRESSION", rules.get(0).getActions().get(0).getType());
+            assert confirmEntries(rules);
+        }catch (Exception ex){
+            fail("Unexpected exception occurred: "+ex.getMessage());
+        }
+    }
+
+    @Test
+    public void testCreateRulesFromSpelJson(){
+        try {
+            String testJsonFile = "src/test/resources/test_spel_rules.json";
+            List<Rule> rules = RulesFactory.createRules(testJsonFile,"JSON", "SPEL");
+            assertEquals(2, rules.size());
+            assertSame("EXPRESSION", rules.get(0).getActions().get(0).getType());
+        }catch (Exception ex){
+            fail("Unexpected exception occurred: "+ex.getMessage());
+        }
+    }
+
+    @Test
+    public void testFakeTypeNotSupported(){
+        try {
+            RulesFactory.createRules("FAKEFILE", "FAKE", "NIFI");
         }catch (Exception ex){
             return;
         }
-        fail("Exception shoudl have been thrown for unexpected type");
+        fail("Exception should have been thrown for unexpected type");
     }
+
+    @Test
+    public void testFakeFormatNotSupported(){
+        try {
+            RulesFactory.createRules("FAKEFILE", "JSON", "FAKE");
+        }catch (Exception ex){
+            return;
+        }
+        fail("Exception should have been thrown for unexpected type");
+    }
+
 
     private boolean confirmEntries(List<Rule> rules){
         Rule rule1= rules.get(0);

@@ -56,6 +56,11 @@
             <artifactId>easy-rules-mvel</artifactId>
             <version>3.3.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.jeasy</groupId>
+            <artifactId>easy-rules-spel</artifactId>
+            <version>3.3.0</version>
+        </dependency>
         <!-- test -->
         <dependency>
             <groupId>org.apache.nifi</groupId>
@@ -76,8 +81,12 @@
                 <artifactId>apache-rat-plugin</artifactId>
                 <configuration>
                     <excludes combine.children="append">
-                        <exclude>src/test/resources/test_rules.json</exclude>
-                        <exclude>src/test/resources/test_rules.yml</exclude>
+                        <exclude>src/test/resources/test_nifi_rules.json</exclude>
+                        <exclude>src/test/resources/test_nifi_rules.yml</exclude>
+                        <exclude>src/test/resources/test_mvel_rules.json</exclude>
+                        <exclude>src/test/resources/test_mvel_rules.yml</exclude>
+                        <exclude>src/test/resources/test_spel_rules.json</exclude>
+                        <exclude>src/test/resources/test_spel_rules.yml</exclude>
                     </excludes>
                 </configuration>
             </plugin>

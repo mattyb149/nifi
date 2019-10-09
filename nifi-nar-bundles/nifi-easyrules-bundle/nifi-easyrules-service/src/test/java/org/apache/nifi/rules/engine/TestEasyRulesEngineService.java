@@ -37,8 +37,9 @@ public class TestEasyRulesEngineService {
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final RulesEngineService service = new MockEasyRulesEngineService();
         runner.addControllerService("easy-rules-engine-service-test",service);
-        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_rules.yml");
+        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_nifi_rules.yml");
         runner.setProperty(service,EasyRulesEngineService.RULES_FILE_TYPE, "YAML");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_FORMAT, "NIFI");
         runner.enableControllerService(service);
         runner.assertValid(service);
         Map<String, Object> facts = new HashMap<>();
@@ -50,12 +51,85 @@ public class TestEasyRulesEngineService {
     }
 
     @Test
+    public void testYamlMvelRules() throws InitializationException, IOException {
+        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
+        final RulesEngineService service = new MockEasyRulesEngineService();
+        runner.addControllerService("easy-rules-engine-service-test",service);
+        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_mvel_rules.yml");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_TYPE, "YAML");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_FORMAT, "MVEL");
+        runner.enableControllerService(service);
+        runner.assertValid(service);
+        Map<String, Object> facts = new HashMap<>();
+        facts.put("predictedQueuedCount",60);
+        facts.put("predictedTimeToBytesBackpressureMillis",300000);
+        List<Action> actions = service.fireRules(facts);
+        assertNotNull(actions);
+        assertEquals(actions.size(), 2);
+    }
+
+    @Test
+    public void testYamlSpelRules() throws InitializationException, IOException {
+        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
+        final RulesEngineService service = new MockEasyRulesEngineService();
+        runner.addControllerService("easy-rules-engine-service-test",service);
+        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_spel_rules.yml");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_TYPE, "YAML");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_FORMAT, "SPEL");
+        runner.enableControllerService(service);
+        runner.assertValid(service);
+        Map<String, Object> facts = new HashMap<>();
+        facts.put("predictedQueuedCount",60);
+        facts.put("predictedTimeToBytesBackpressureMillis",300000);
+        List<Action> actions = service.fireRules(facts);
+        assertNotNull(actions);
+        assertEquals(actions.size(), 2);
+    }
+
+    @Test
     public void testJsonNiFiRules() throws InitializationException, IOException {
         final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
         final RulesEngineService service = new MockEasyRulesEngineService();
         runner.addControllerService("easy-rules-engine-service-test",service);
-        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_rules.json");
+        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_nifi_rules.json");
         runner.setProperty(service,EasyRulesEngineService.RULES_FILE_TYPE, "JSON");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_FORMAT, "NIFI");
+        runner.enableControllerService(service);
+        runner.assertValid(service);
+        Map<String, Object> facts = new HashMap<>();
+        facts.put("predictedQueuedCount",60);
+        facts.put("predictedTimeToBytesBackpressureMillis",300000);
+        List<Action> actions = service.fireRules(facts);
+        assertNotNull(actions);
+        assertEquals(actions.size(), 2);
+    }
+
+    @Test
+    public void testJsonMvelRules() throws InitializationException, IOException {
+        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
+        final RulesEngineService service = new MockEasyRulesEngineService();
+        runner.addControllerService("easy-rules-engine-service-test",service);
+        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_mvel_rules.json");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_TYPE, "JSON");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_FORMAT, "MVEL");
+        runner.enableControllerService(service);
+        runner.assertValid(service);
+        Map<String, Object> facts = new HashMap<>();
+        facts.put("predictedQueuedCount",60);
+        facts.put("predictedTimeToBytesBackpressureMillis",300000);
+        List<Action> actions = service.fireRules(facts);
+        assertNotNull(actions);
+        assertEquals(actions.size(), 2);
+    }
+
+    @Test
+    public void testJsonSpelRules() throws InitializationException, IOException {
+        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
+        final RulesEngineService service = new MockEasyRulesEngineService();
+        runner.addControllerService("easy-rules-engine-service-test",service);
+        runner.setProperty(service, EasyRulesEngineService.RULES_FILE_PATH, "src/test/resources/test_spel_rules.json");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_TYPE, "JSON");
+        runner.setProperty(service,EasyRulesEngineService.RULES_FILE_FORMAT, "SPEL");
         runner.enableControllerService(service);
         runner.assertValid(service);
         Map<String, Object> facts = new HashMap<>();

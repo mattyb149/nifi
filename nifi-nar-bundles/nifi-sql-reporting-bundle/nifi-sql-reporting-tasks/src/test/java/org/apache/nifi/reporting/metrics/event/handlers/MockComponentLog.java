@@ -27,6 +27,14 @@ public class MockComponentLog implements ComponentLog {
     String traceMessage;
     String errorMessage;
 
+    protected String convertMessage(String msg, Object[] os){
+        String replaceMsg = msg;
+        for (Object o : os) {
+            replaceMsg = replaceMsg.replaceFirst("\\{\\}", os.toString());
+        }
+        return replaceMsg;
+    }
+
     @Override
     public void warn(String msg, Throwable t) {
         warn(msg);
@@ -39,7 +47,7 @@ public class MockComponentLog implements ComponentLog {
 
     @Override
     public void warn(String msg, Object[] os, Throwable t) {
-        warn(msg);
+        warn(convertMessage(msg,os));
     }
 
     @Override
@@ -64,7 +72,7 @@ public class MockComponentLog implements ComponentLog {
 
     @Override
     public void trace(String msg, Object[] os, Throwable t) {
-        trace(msg);
+        trace(convertMessage(msg,os));
     }
 
     @Override
@@ -109,7 +117,7 @@ public class MockComponentLog implements ComponentLog {
 
     @Override
     public void info(String msg, Object[] os, Throwable t) {
-        info(msg);
+        info(convertMessage(msg,os));
     }
 
     @Override
@@ -124,7 +132,7 @@ public class MockComponentLog implements ComponentLog {
 
     @Override
     public void error(String msg, Object[] os) {
-        error(msg);
+        error(convertMessage(msg,os));
     }
 
     @Override
@@ -144,7 +152,7 @@ public class MockComponentLog implements ComponentLog {
 
     @Override
     public void debug(String msg, Object[] os) {
-        debug(msg);
+        debug(convertMessage(msg,os));
     }
 
     @Override

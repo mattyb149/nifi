@@ -29,27 +29,28 @@ import org.apache.nifi.rules.Action;
 import org.apache.nifi.rules.ActionHandler;
 import org.apache.nifi.rules.Rule;
 import org.apache.nifi.rules.RulesFactory;
+import org.jeasy.rules.api.Condition;
 import org.jeasy.rules.api.Facts;
+import org.jeasy.rules.api.RuleListener;
 import org.jeasy.rules.api.Rules;
-import org.jeasy.rules.api.RulesEngine;
 import org.jeasy.rules.core.DefaultRulesEngine;
 import org.jeasy.rules.core.RuleBuilder;
 import org.jeasy.rules.mvel.MVELCondition;
+import org.jeasy.rules.spel.SpELCondition;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
+
 
 public class EasyRulesEngineService  extends AbstractControllerService implements RulesEngineService {
 
     static final AllowableValue YAML = new AllowableValue("YAML", "YAML", "YAML file configuration type.");
     static final AllowableValue JSON = new AllowableValue("JSON", "JSON", "JSON file configuration type.");
-
-    static final AllowableValue NIFI = new AllowableValue("NIFI", "NIFI", "NIFI rules formatted file.");
+    static final AllowableValue NIFI = new AllowableValue("NIFI", "NiFi", "NIFI rules formatted file.");
+    static final AllowableValue MVEL = new AllowableValue("MVEL", "Easy Rules MVEL", "Easy Rules File format using MVFLEX Expression Language");
+    static final AllowableValue SPEL = new AllowableValue("SPEL", "Easy Rules SpEL", "Easy Rules File format using Spring Expression Language");
 
     static final PropertyDescriptor RULES_FILE_PATH = new PropertyDescriptor.Builder()
             .name("rules-file-path")
@@ -74,13 +75,14 @@ public class EasyRulesEngineService  extends AbstractControllerService implement
             .displayName("Rules File Format")
             .description("File format for rules. Supported formats are NiFi Rules.")
             .required(true)
-            .allowableValues(NIFI)
+            .allowableValues(NIFI,MVEL,SPEL)
             .defaultValue(NIFI.getValue())
             .build();
 
 
     protected List<PropertyDescriptor> properties;
     protected volatile List<Rule> rules;
+    protected volatile String rulesFileFormat;
 
     @Override
     protected void init(ControllerServiceInitializationContext config) throws InitializationException {
@@ -101,8 +103,9 @@ public class EasyRulesEngineService  extends AbstractControllerService implement
     public void onEnabled(final ConfigurationContext context) throws InitializationException {
         final String rulesFile = context.getProperty(RULES_FILE_PATH).getValue();
         final String rulesFileType = context.getProperty(RULES_FILE_TYPE).getValue();
+        rulesFileFormat = context.getProperty(RULES_FILE_FORMAT).getValue();
         try{
-            rules = RulesFactory.createRules(rulesFile, rulesFileType);
+            rules = RulesFactory.createRules(rulesFile, rulesFileType, rulesFileFormat);
         } catch (Exception fex){
             throw new InitializationException(fex);
         }
@@ -114,31 +117,23 @@ public class EasyRulesEngineService  extends AbstractControllerService implement
         if(rules == null){
             return null;
         }else {
-            List<Rule> filteredRules = filterRulesByFacts(rules, facts);
-            if(filteredRules == null){
-                return null;
-            }else{
-                org.jeasy.rules.api.Rules easyRules = getRules(filteredRules, actions::add);
-                Facts easyFacts = new Facts();
-                facts.forEach(easyFacts::put);
-                RulesEngine rulesEngine = new DefaultRulesEngine();
-                rulesEngine.fire(easyRules, easyFacts);
-                return actions;
-            }
+            org.jeasy.rules.api.Rules easyRules = convertToEasyRules(rules, actions::add);
+            Facts easyFacts = new Facts();
+            facts.forEach(easyFacts::put);
+            DefaultRulesEngine rulesEngine = new DefaultRulesEngine();
+            rulesEngine.registerRuleListener(new EasyRulesListener());
+            rulesEngine.fire(easyRules, easyFacts);
+            return actions;
         }
     }
 
-    protected List<Rule> filterRulesByFacts(List<Rule> rules, Map<String, Object> facts){
-        final Set<String> factNames = facts.keySet();
-        Predicate<Rule> rulePredicate = rule -> factNames.containsAll(rule.getFacts());
-        return  rules.stream().filter(rulePredicate).collect(Collectors.toList());
-    }
 
-    protected Rules getRules(List<Rule> rules, ActionHandler actionHandler) {
+    protected Rules convertToEasyRules(List<Rule> rules, ActionHandler actionHandler) {
         final Rules easyRules = new Rules();
         rules.forEach(rule -> {
             RuleBuilder ruleBuilder = new RuleBuilder();
-            MVELCondition condition = new MVELCondition(rule.getCondition());
+            Condition condition = rulesFileFormat.equalsIgnoreCase(SPEL.getValue())
+                                 ? new SpELCondition(rule.getCondition()): new MVELCondition(rule.getCondition());
             ruleBuilder.name(rule.getName())
                     .description(rule.getDescription())
                     .priority(rule.getPriority())
@@ -151,6 +146,33 @@ public class EasyRulesEngineService  extends AbstractControllerService implement
             easyRules.register(ruleBuilder.build());
         });
         return easyRules;
+    }
+
+    private class EasyRulesListener implements RuleListener {
+        @Override
+        public boolean beforeEvaluate(org.jeasy.rules.api.Rule rule, Facts facts) {
+            return true;
+        }
+
+        @Override
+        public void afterEvaluate(org.jeasy.rules.api.Rule rule, Facts facts, boolean b) {
+
+        }
+
+        @Override
+        public void beforeExecute(org.jeasy.rules.api.Rule rule, Facts facts) {
+
+        }
+
+        @Override
+        public void onSuccess(org.jeasy.rules.api.Rule rule, Facts facts) {
+            getLogger().debug("Rules was successfully processed for: {}",new Object[]{rule.getName()});
+        }
+
+        @Override
+        public void onFailure(org.jeasy.rules.api.Rule rule, Facts facts, Exception e) {
+            getLogger().warn("Rule execution failed for: {}", new Object[]{rule.getName()}, e);
+        }
     }
 
 }
