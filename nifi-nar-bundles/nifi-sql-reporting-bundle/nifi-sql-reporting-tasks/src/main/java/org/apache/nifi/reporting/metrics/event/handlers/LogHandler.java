@@ -23,12 +23,10 @@ import org.apache.nifi.logging.LogLevel;
 import java.util.Map;
 import java.util.Set;
 
-public class LogHandler implements EventHandler {
-
-    final ComponentLog logger;
+public class LogHandler extends AbstractEventHandler{
 
     public LogHandler(ComponentLog logger) {
-        this.logger = logger;
+        super(logger);
     }
 
     @Override

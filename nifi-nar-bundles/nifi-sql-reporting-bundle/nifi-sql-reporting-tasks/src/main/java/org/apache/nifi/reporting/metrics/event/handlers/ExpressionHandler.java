@@ -25,16 +25,14 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
 
 import java.util.Map;
 
-public class ExpressionHandler implements EventHandler {
+public class ExpressionHandler extends AbstractEventHandler {
 
     enum Type{
         MVEL, SPEL;
     }
 
-    final private ComponentLog logger;
-
     public ExpressionHandler(ComponentLog logger) {
-        this.logger = logger;
+        super(logger);
     }
 
     @Override
