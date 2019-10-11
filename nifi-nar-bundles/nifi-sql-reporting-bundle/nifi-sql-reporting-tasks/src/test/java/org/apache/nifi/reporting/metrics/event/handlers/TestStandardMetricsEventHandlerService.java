@@ -19,12 +19,15 @@ package org.apache.nifi.reporting.metrics.event.handlers;
 
 import com.google.common.collect.Lists;
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.record.sink.MockRecordSinkService;
+import org.apache.nifi.record.sink.RecordSinkService;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.metrics.MetricsEventHandlerService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.rules.Action;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -40,12 +43,37 @@ import static org.mockito.ArgumentMatchers.anyMap;
 
 public class TestStandardMetricsEventHandlerService {
 
+    TestRunner runner;
+    MockComponentLog mockComponentLog;
+    RecordSinkService recordSinkService;
+    MetricsEventHandlerService eventHandlerService;
+
+    @Before
+    public void setup()  throws InitializationException {
+        runner = TestRunners.newTestRunner(TestProcessor.class);
+        mockComponentLog = new MockComponentLog();
+        StandardMetricsEventHandlerService metricsEventHandlerService = new MockStandardMetricsEventHandlerService(mockComponentLog);
+        recordSinkService = new MockRecordSinkService();
+        runner.addControllerService("MockRecordSinkService", recordSinkService);
+        runner.enableControllerService(recordSinkService);
+        runner.addControllerService("standard-metric-event-handler-service",metricsEventHandlerService);
+        runner.setProperty(metricsEventHandlerService, MockStandardMetricsEventHandlerService.RECORD_SINK_SERVICE,"MockRecordSinkService");
+        runner.enableControllerService(metricsEventHandlerService);
+        eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
+                .getControllerServiceLookup()
+                .getControllerService("standard-metric-event-handler-service");
+    }
+
+    @Test
+    public void testValidServices(){
+        runner.assertValid(recordSinkService);
+        runner.assertValid(eventHandlerService);
+        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
+        assertThat(recordSinkService, instanceOf(RecordSinkService.class));
+    }
+
     @Test
     public void testWarningLogged() throws InitializationException, IOException{
-
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -62,23 +90,12 @@ public class TestStandardMetricsEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
 
         final Action action = new Action();
         action.setType("LOG");
         action.setAttributes(attributes);
         eventHandlerService.process(metrics, Lists.newArrayList(action));
-
         String logMessage = mockComponentLog.getWarnMessage();
-
         assertTrue(StringUtils.isNotEmpty(logMessage));
         assertEquals(expectedMessage,logMessage);
 
@@ -86,10 +103,6 @@ public class TestStandardMetricsEventHandlerService {
 
     @Test
     public void testAlertWithBulletinLevel() throws InitializationException, IOException{
-
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -105,15 +118,6 @@ public class TestStandardMetricsEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         final Action action = new Action();
         action.setType("ALERT");
         action.setAttributes(attributes);
@@ -128,10 +132,6 @@ public class TestStandardMetricsEventHandlerService {
     @Test
     public void testAlertNoBulletinLevel() throws InitializationException, IOException{
 
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
-
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
         final String expectedMessage = "--------------------------------------------------\n" +
@@ -145,15 +145,6 @@ public class TestStandardMetricsEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         final Action action = new Action();
         action.setType("ALERT");
         action.setAttributes(attributes);
@@ -167,10 +158,6 @@ public class TestStandardMetricsEventHandlerService {
     @Test
     public void testAlertInvalidBulletinLevel() throws InitializationException, IOException{
 
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
-
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
         final String expectedMessage = "--------------------------------------------------\n" +
@@ -184,15 +171,6 @@ public class TestStandardMetricsEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         final Action action = new Action();
         action.setType("ALERT");
         action.setAttributes(attributes);
@@ -207,9 +185,6 @@ public class TestStandardMetricsEventHandlerService {
     @Test
     public void testHandler() throws InitializationException, IOException{
 
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
         EventHandler mockHandler = Mockito.mock(EventHandler.class);
         Map<String,EventHandler> mockHandlerMap = new HashMap<>();
 
@@ -220,15 +195,6 @@ public class TestStandardMetricsEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         mockHandlerMap.put("ALERT", mockHandler);
         final Action action = new Action();
         action.setType("ALERT");
@@ -239,10 +205,6 @@ public class TestStandardMetricsEventHandlerService {
 
     @Test
     public void testNoLogAttributesProvided() throws InitializationException, IOException{
-
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
 
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
@@ -255,15 +217,6 @@ public class TestStandardMetricsEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         final Action action = new Action();
         action.setType("LOG");
         action.setAttributes(attributes);
@@ -276,11 +229,6 @@ public class TestStandardMetricsEventHandlerService {
 
     @Test
     public void testInvalidLogLevelProvided() throws InitializationException, IOException{
-
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
-
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
 
@@ -295,15 +243,6 @@ public class TestStandardMetricsEventHandlerService {
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         final Action action = new Action();
         action.setType("LOG");
         action.setAttributes(attributes);
@@ -317,29 +256,15 @@ public class TestStandardMetricsEventHandlerService {
     @Test
     public void testMvelExpression() throws InitializationException, IOException{
 
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
-
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
         final String expectedMessage = "Expression was executed successfully:";
 
         attributes.put("command","System.out.println(jvmHeap)");
         attributes.put("type","MVEL");
-
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         final Action action = new Action();
         action.setType("EXPRESSION");
         action.setAttributes(attributes);
@@ -351,30 +276,15 @@ public class TestStandardMetricsEventHandlerService {
 
     @Test
     public void testSpelExpression() throws InitializationException, IOException{
-
-        final TestRunner runner = TestRunners.newTestRunner(TestProcessor.class);
-        final MockComponentLog mockComponentLog = new MockComponentLog();
-        final StandardMetricsEventHandlerService service = new MockStandardMetricsEventHandlerService(mockComponentLog);
-
         final Map<String,String> attributes = new HashMap<>();
         final Map<String,Object> metrics = new HashMap<>();
         final String expectedMessage = "Expression was executed successfully with result:";
 
         attributes.put("command","#jvmHeap + ' is large'");
         attributes.put("type","SPEL");
-
         metrics.put("jvmHeap","1000000");
         metrics.put("cpu","90");
 
-        runner.addControllerService("standard-metric-event-handler-service",service);
-        runner.enableControllerService(service);
-        runner.assertValid(service);
-
-        final MetricsEventHandlerService eventHandlerService = (MetricsEventHandlerService) runner.getProcessContext()
-                .getControllerServiceLookup()
-                .getControllerService("standard-metric-event-handler-service");
-
-        assertThat(eventHandlerService, instanceOf(StandardMetricsEventHandlerService.class));
         final Action action = new Action();
         action.setType("EXPRESSION");
         action.setAttributes(attributes);
@@ -384,6 +294,24 @@ public class TestStandardMetricsEventHandlerService {
         assertTrue(logMessage.startsWith(expectedMessage));
     }
 
+    @Test
+    public void testRecordSendViaSink() throws InitializationException, IOException{
+        final Map<String,String> attributes = new HashMap<>();
+        final Map<String,Object> metrics = new HashMap<>();
+        final String expectedMessage = "Records written to sink service:";
+
+        attributes.put("sendZeroResults","false");
+        metrics.put("jvmHeap","1000000");
+        metrics.put("cpu","90");
+
+        final Action action = new Action();
+        action.setType("SEND");
+        action.setAttributes(attributes);
+        eventHandlerService.process(metrics, Lists.newArrayList(action));
+        String logMessage = mockComponentLog.getDebugMessage();
+        assertTrue(StringUtils.isNotEmpty(logMessage));
+        assertTrue(logMessage.startsWith(expectedMessage));
+    }
 
     private class MockStandardMetricsEventHandlerService extends StandardMetricsEventHandlerService {
 
