@@ -17,12 +17,18 @@
 package org.apache.nifi.reporting.metrics.event.handlers;
 
 
+import org.apache.nifi.annotation.lifecycle.OnEnabled;
+import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.AbstractControllerService;
+import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.controller.ControllerServiceInitializationContext;
+import org.apache.nifi.record.sink.RecordSinkService;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.metrics.MetricsEventHandlerService;
 import org.apache.nifi.rules.Action;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -32,9 +38,19 @@ public class StandardMetricsEventHandlerService extends AbstractControllerServic
         ALERT, LOG, SEND, EXPRESSION;
     }
 
+    protected List<PropertyDescriptor> properties;
     private EventHandler logHandler;
     private EventHandler alertHandler;
     private EventHandler expressionHandler;
+    private EventHandler recordSinkHandler;
+
+    static final PropertyDescriptor RECORD_SINK_SERVICE = new PropertyDescriptor.Builder()
+            .name("record-sink-service")
+            .displayName("Record Sink Service")
+            .description("Specifies the Controller Service used to support the SEND event action.  If not set SEND events will be ignored.")
+            .identifiesControllerService(RecordSinkService.class)
+            .required(false)
+            .build();
 
     @Override
     protected void init(ControllerServiceInitializationContext config) throws InitializationException {
@@ -42,6 +58,22 @@ public class StandardMetricsEventHandlerService extends AbstractControllerServic
         logHandler = new LogHandler(getLogger());
         alertHandler = new AlertHandler(getLogger());
         expressionHandler = new ExpressionHandler(getLogger());
+        final List<PropertyDescriptor> properties = new ArrayList<>();
+        properties.add(RECORD_SINK_SERVICE);
+        this.properties = Collections.unmodifiableList(properties);
+    }
+
+    @Override
+    protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
+        return properties;
+    }
+
+    @OnEnabled
+    public void onEnabled(final ConfigurationContext context) throws InitializationException {
+        if(context.getProperty(RECORD_SINK_SERVICE).isSet()) {
+            RecordSinkService recordSinkService = context.getProperty(RECORD_SINK_SERVICE).asControllerService(RecordSinkService.class);
+            recordSinkHandler = new RecordSinkEventHandler(getLogger(), recordSinkService);
+        }
     }
 
     @Override
@@ -94,6 +126,13 @@ public class StandardMetricsEventHandlerService extends AbstractControllerServic
                 break;
             case EXPRESSION:
                 expressionHandler.execute(metrics, attributes);
+                break;
+            case SEND:
+                if(recordSinkHandler != null) {
+                    recordSinkHandler.execute(metrics, attributes);
+                }else{
+                    getLogger().warn("No Record Sink was provided to support the send action request.");
+                }
                 break;
             default:
                 getLogger().warn("Provided action not available: {}", new Object[]{action.toString()});
