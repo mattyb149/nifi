@@ -16,10 +16,12 @@
  */
 package org.apache.nifi.reporting.metrics.event.handlers;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.record.sink.RecordSinkService;
 import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.WriteResult;
+import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.ListRecordSet;
 import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.RecordField;
@@ -49,8 +51,9 @@ public class RecordSinkEventHandler extends AbstractEventHandler {
 
         try {
             WriteResult result = recordSinkService.sendData(recordSet, attributes, sendZeroResults);
-            logger.debug("Records written to sink service: {}", new Object[]{result.getRecordCount()});
-
+            if(logger.isDebugEnabled() && result != null){
+                logger.debug("Records written to sink service: {}", new Object[]{result.getRecordCount()});
+            }
         }catch (Exception ex){
             logger.warn("Exception encountered when attempting to send metrics", ex);
         }
@@ -59,11 +62,51 @@ public class RecordSinkEventHandler extends AbstractEventHandler {
     }
 
     private RecordSet getRecordSet(Map<String, Object> metrics){
-        List<RecordField> recordFields = metrics.keySet().stream().map( key ->
-            new RecordField(key, RecordFieldType.STRING.getDataType())
+        List<RecordField> recordFields = metrics.entrySet().stream().map( entry ->
+            new RecordField(entry.getKey(),getDataType(String.valueOf(entry.getValue())))
         ).collect(Collectors.toList());
         final RecordSchema recordSchema = new SimpleRecordSchema(recordFields);
         return new ListRecordSet(recordSchema, Arrays.asList( new MapRecord(recordSchema,metrics)));
     }
+
+    private DataType getDataType(final String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+
+        if (NumberUtils.isParsable(value)) {
+            if (value.contains(".")) {
+                try {
+                    final double doubleValue = Double.parseDouble(value);
+                    if (doubleValue > Float.MAX_VALUE || doubleValue < Float.MIN_VALUE) {
+                        return RecordFieldType.DOUBLE.getDataType();
+                    }
+
+                    return RecordFieldType.FLOAT.getDataType();
+                } catch (final NumberFormatException nfe) {
+                    return RecordFieldType.STRING.getDataType();
+                }
+            }
+
+            try {
+                final long longValue = Long.parseLong(value);
+                if (longValue > Integer.MAX_VALUE || longValue < Integer.MIN_VALUE) {
+                    return RecordFieldType.LONG.getDataType();
+                }
+
+                return RecordFieldType.INT.getDataType();
+            } catch (final NumberFormatException nfe) {
+                return RecordFieldType.STRING.getDataType();
+            }
+        }
+
+        if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
+            return RecordFieldType.BOOLEAN.getDataType();
+        }
+
+        return RecordFieldType.STRING.getDataType();
+
+    }
+
 
 }
