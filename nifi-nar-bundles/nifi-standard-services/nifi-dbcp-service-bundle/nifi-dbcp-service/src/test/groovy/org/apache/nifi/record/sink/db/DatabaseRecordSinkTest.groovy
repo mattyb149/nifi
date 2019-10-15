@@ -28,6 +28,7 @@ import org.apache.nifi.record.sink.RecordSinkService
 import org.apache.nifi.reporting.InitializationException
 import org.apache.nifi.serialization.RecordSetWriterFactory
 import org.apache.nifi.serialization.SimpleRecordSchema
+import org.apache.nifi.serialization.WriteResult
 import org.apache.nifi.serialization.record.ListRecordSet
 import org.apache.nifi.serialization.record.MapRecord
 import org.apache.nifi.serialization.record.MockRecordWriter
@@ -140,7 +141,10 @@ class DatabaseRecordSinkTest {
                 new MapRecord(recordSchema, row2)
         ))
 
-        task.sendData(recordSet, new HashMap<>(), true)
+        WriteResult writeResult = task.sendData(recordSet, ['a': 'Hello'], true)
+        assertNotNull(writeResult)
+        assertEquals(2, writeResult.recordCount)
+        assertEquals('Hello', writeResult.attributes['a'])
 
         final Statement st = con.createStatement()
         final ResultSet resultSet = st.executeQuery('select * from testTable')

@@ -198,6 +198,7 @@ public class DatabaseRecordSink extends AbstractControllerService implements Rec
     public WriteResult sendData(RecordSet recordSet, Map<String, String> attributes, boolean sendZeroResults) throws IOException {
         Boolean originalAutoCommit = null;
         Connection connection = null;
+        WriteResult writeResult = null;
         try {
             connection = dbcpService.getConnection(attributes);
             originalAutoCommit = connection.getAutoCommit();
@@ -246,6 +247,7 @@ public class DatabaseRecordSink extends AbstractControllerService implements Rec
 
                 Record currentRecord;
                 List<Integer> fieldIndexes = sqlHolder.getFieldIndexes();
+                int recordCount = 0;
 
                 while ((currentRecord = recordSet.next()) != null) {
                     Object[] values = currentRecord.getValues();
@@ -271,8 +273,10 @@ public class DatabaseRecordSink extends AbstractControllerService implements Rec
                         }
                         ps.addBatch();
                     }
+                    recordCount++;
                 }
                 ps.executeBatch();
+                writeResult = WriteResult.of(recordCount, attributes);
             }
 
         } catch (IOException ioe) {
@@ -295,7 +299,7 @@ public class DatabaseRecordSink extends AbstractControllerService implements Rec
                 }
             }
         }
-        return null;
+        return writeResult;
     }
 
     private static String normalizeColumnName(final String colName, final boolean translateColumnNames) {
