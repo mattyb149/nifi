@@ -77,7 +77,7 @@ public class MockComponentLog implements ComponentLog {
 
     @Override
     public boolean isWarnEnabled() {
-        return false;
+        return true;
     }
 
     @Override
@@ -97,7 +97,7 @@ public class MockComponentLog implements ComponentLog {
 
     @Override
     public boolean isDebugEnabled() {
-        return false;
+        return true;
     }
 
     @Override
@@ -226,4 +226,7 @@ public class MockComponentLog implements ComponentLog {
     public String getErrorMessage() {
         return errorMessage;
     }
+
+
+
 }
