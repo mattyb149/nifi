@@ -47,5 +47,6 @@
         <module>nifi-proxy-configuration-api</module>
         <module>nifi-proxy-configuration-bundle</module>
         <module>nifi-record-sink-api</module>
+        <module>nifi-diagnostic-event-handler-api</module>
     </modules>
 </project>
