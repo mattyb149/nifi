@@ -75,7 +75,7 @@ public class HikariCPConnectionPool extends AbstractControllerService implements
     public static final PropertyDescriptor DB_DRIVERNAME = new PropertyDescriptor.Builder()
             .name("hikaricp-driver-classname")
             .displayName("Database Driver Class Name")
-            .description("Database driver class name")
+            .description("The fully-qualified class name of the JDBC driver. Example: com.mysql.jdbc.Driver")
             .defaultValue(null)
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
