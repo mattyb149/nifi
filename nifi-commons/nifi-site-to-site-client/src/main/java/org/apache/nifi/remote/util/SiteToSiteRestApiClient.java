@@ -1511,6 +1511,15 @@ public class SiteToSiteRestApiClient implements Closeable {
                     case RESPONSE_CODE_BAD_REQUEST:
                         return readResponse(content);
 
+                    case RESPONSE_CODE_NOT_FOUND:
+                        // If this is a cancellation and no data has been sent, a 404 is returned so return an Entity indicating cancellation
+                        if (ResponseCode.fromCode(clientResponse.getCode()) == ResponseCode.CANCEL_TRANSACTION) {
+                            final TransactionResultEntity entity = new TransactionResultEntity();
+                            entity.setResponseCode(ResponseCode.CANCEL_TRANSACTION.getCode());
+                            return entity;
+                        }
+                        // Intentional fall-through to error handling
+
                     default:
                         throw handleErrResponse(responseCode, content);
                 }

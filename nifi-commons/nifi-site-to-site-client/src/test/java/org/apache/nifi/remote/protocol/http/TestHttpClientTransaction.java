@@ -16,6 +16,7 @@
  */
 package org.apache.nifi.remote.protocol.http;
 
+import static org.apache.nifi.remote.protocol.ResponseCode.CANCEL_TRANSACTION;
 import static org.apache.nifi.remote.protocol.ResponseCode.CONFIRM_TRANSACTION;
 import static org.apache.nifi.remote.protocol.SiteToSiteTestUtils.createDataPacket;
 import static org.apache.nifi.remote.protocol.SiteToSiteTestUtils.execReceiveOneFlowFile;
@@ -39,12 +40,15 @@ import static org.mockito.Mockito.verify;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import org.apache.nifi.events.EventReporter;
 import org.apache.nifi.remote.Peer;
 import org.apache.nifi.remote.PeerDescription;
+import org.apache.nifi.remote.Transaction;
 import org.apache.nifi.remote.TransferDirection;
 import org.apache.nifi.remote.codec.FlowFileCodec;
 import org.apache.nifi.remote.codec.StandardFlowFileCodec;
@@ -229,6 +233,36 @@ public class TestHttpClientTransaction {
         assertEquals(-1, sentByClient.read());
 
         verify(apiClient).commitTransferFlowFiles(transactionUrl, CONFIRM_TRANSACTION);
+    }
+
+    @Test
+    public void testCancel() throws IOException {
+
+        SiteToSiteRestApiClient apiClient = mock(SiteToSiteRestApiClient.class);
+        final String transactionUrl = "http://www.example.com/data-transfer/input-ports/portId/transactions/transactionId";
+        doNothing().when(apiClient).openConnectionForSend(eq(transactionUrl), any(Peer.class));
+        // Emulate that server returns correct checksum.
+        doAnswer(invocation -> {
+            HttpCommunicationsSession commSession = (HttpCommunicationsSession)invocation.getArguments()[0];
+            commSession.setChecksum("2946083981");
+            return null;
+        }).when(apiClient).finishTransferFlowFiles(any(CommunicationsSession.class));
+        TransactionResultEntity resultEntity = new TransactionResultEntity();
+        resultEntity.setResponseCode(ResponseCode.CANCEL_TRANSACTION.getCode());
+        doReturn(resultEntity).when(apiClient).commitTransferFlowFiles(eq(transactionUrl), eq(CANCEL_TRANSACTION));
+
+        ByteArrayOutputStream serverResponseBos = new ByteArrayOutputStream();
+        DataOutputStream serverResponse = new DataOutputStream(serverResponseBos);
+        ResponseCode.CANCEL_TRANSACTION.writeResponse(serverResponse, "Test");
+
+        ByteArrayInputStream bis = new ByteArrayInputStream(serverResponseBos.toByteArray());
+        HttpClientTransaction transaction = getClientTransaction(bis, serverResponseBos, apiClient, TransferDirection.SEND, transactionUrl);
+
+        transaction.cancel("Test");
+
+        DataInputStream sentByClient = new DataInputStream(new ByteArrayInputStream(serverResponseBos.toByteArray()));
+        codec.decode(sentByClient);
+        assertEquals(Transaction.TransactionState.TRANSACTION_CANCELED, transaction.getState());
     }
 
     @Test

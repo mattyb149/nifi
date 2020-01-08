@@ -238,6 +238,26 @@ public class TestSocketClientTransaction {
     }
 
     @Test
+    public void testCancel() throws IOException {
+
+        ByteArrayOutputStream serverResponseBos = new ByteArrayOutputStream();
+        DataOutputStream serverResponse = new DataOutputStream(serverResponseBos);
+        ResponseCode.CANCEL_TRANSACTION.writeResponse(serverResponse, "Test");
+
+        ByteArrayInputStream bis = new ByteArrayInputStream(serverResponseBos.toByteArray());
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+        SocketClientTransaction transaction = getClientTransaction(bis, bos, TransferDirection.SEND);
+
+        transaction.cancel("Test");
+
+        DataInputStream sentByClient = new DataInputStream(new ByteArrayInputStream(bos.toByteArray()));
+        assertEquals(RequestType.SEND_FLOWFILES, RequestType.readRequestType(sentByClient));
+        codec.decode(sentByClient);
+        assertEquals(Transaction.TransactionState.TRANSACTION_CANCELED, transaction.getState());
+    }
+
+    @Test
     public void testSendTwoFlowFiles() throws IOException {
 
         ByteArrayOutputStream serverResponseBos = new ByteArrayOutputStream();

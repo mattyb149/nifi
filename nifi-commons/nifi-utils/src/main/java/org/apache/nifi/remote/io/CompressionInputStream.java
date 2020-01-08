@@ -25,6 +25,8 @@ import java.util.zip.Inflater;
 
 public class CompressionInputStream extends InputStream {
 
+    public static final byte[] CANCELLATION_SEQUENCE = new byte[]{'R', 'C', 0x0F, 0x00};
+
     private final InputStream in;
     private final Inflater inflater;
 
@@ -61,6 +63,13 @@ public class CompressionInputStream extends InputStream {
     protected void readChunkHeader() throws IOException {
         // Ensure that we have a valid SYNC chunk
         fillBuffer(fourByteBuffer);
+
+        // Check for RC+15+0 (cancellation code), if the transaction is cancelled before data is sent, there will be no SYNC chunk
+        if (!Arrays.equals(CANCELLATION_SEQUENCE, fourByteBuffer)) {
+            compressedBuffer = new byte[0];
+            bufferIndex = 0;  // indicate that buffer is empty
+        }
+
         if (!Arrays.equals(CompressionOutputStream.SYNC_BYTES, fourByteBuffer)) {
             throw new IOException("Invalid CompressionInputStream. Expected first 4 bytes to be 'SYNC' but were " + toHex(fourByteBuffer));
         }

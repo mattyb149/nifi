@@ -39,6 +39,8 @@ public class StandardFlowFileCodec implements FlowFileCodec {
 
     public static final String DEFAULT_FLOWFILE_PATH = "./";
 
+    private static final int CANCELLATION_SEQUENCE = 0x52430F00; // RC + 15 + 0
+
     private final VersionNegotiator versionNegotiator;
 
     public StandardFlowFileCodec() {
@@ -66,6 +68,9 @@ public class StandardFlowFileCodec implements FlowFileCodec {
     @Override
     public DataPacket decode(final InputStream stream) throws IOException, ProtocolException {
         final DataInputStream in = new DataInputStream(stream);
+        if(in.markSupported()) {
+            in.mark(4);
+        }
 
         final int numAttributes;
         try {
@@ -73,6 +78,17 @@ public class StandardFlowFileCodec implements FlowFileCodec {
         } catch (final EOFException e) {
             // we're out of data.
             return null;
+        }
+
+        // Check numAttributes against RC+15+0 (cancellation code), if no data has been sent then the number of attributes will not be sent
+        if (numAttributes == CANCELLATION_SEQUENCE) {
+            // we're out of data, but need to reset the read for the response code. If this stream can't reset, throw a ProtocolException
+            if (in.markSupported()) {
+                in.reset();
+                return null;
+            } else {
+                throw new ProtocolException("Read in the Transaction Cancellation sequence but cannot reset the stream for later processing");
+            }
         }
 
         // This is here because if the stream is not properly formed, we could get up to Integer.MAX_VALUE attributes, which will
