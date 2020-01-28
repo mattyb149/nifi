@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,6 +47,8 @@ import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.ValidationContext;
+import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.dbcp.hive.HiveDBCPService;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.flowfile.FlowFile;
@@ -58,6 +61,7 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.processor.util.pattern.PartialFunctions;
+import org.apache.nifi.serialization.RecordSetWriterFactory;
 import org.apache.nifi.util.StopWatch;
 import org.apache.nifi.util.hive.CsvOutputOptions;
 import org.apache.nifi.util.hive.HiveJdbcCommon;
@@ -67,6 +71,7 @@ import static org.apache.nifi.util.hive.HiveJdbcCommon.CSV;
 import static org.apache.nifi.util.hive.HiveJdbcCommon.CSV_MIME_TYPE;
 import static org.apache.nifi.util.hive.HiveJdbcCommon.MIME_TYPE_AVRO_BINARY;
 import static org.apache.nifi.util.hive.HiveJdbcCommon.NORMALIZE_NAMES_FOR_AVRO;
+import static org.apache.nifi.util.hive.HiveJdbcCommon.USE_RECORD_WRITER;
 
 @EventDriven
 @InputRequirement(Requirement.INPUT_ALLOWED)
@@ -172,7 +177,7 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
     public static final PropertyDescriptor HIVEQL_CSV_HEADER = new PropertyDescriptor.Builder()
             .name("csv-header")
             .displayName("CSV Header")
-            .description("Include Header in Output")
+            .description("Include Header in Output. This property is only used if 'CSV' is selected for the 'Output Format' property.")
             .required(true)
             .allowableValues("true", "false")
             .defaultValue("true")
@@ -182,7 +187,7 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
     public static final PropertyDescriptor HIVEQL_CSV_ALT_HEADER = new PropertyDescriptor.Builder()
             .name("csv-alt-header")
             .displayName("Alternate CSV Header")
-            .description("Comma separated list of header fields")
+            .description("Comma separated list of header fields. This property is only used if 'CSV' is selected for the 'Output Format' property.")
             .required(false)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
@@ -191,7 +196,7 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
     public static final PropertyDescriptor HIVEQL_CSV_DELIMITER = new PropertyDescriptor.Builder()
             .name("csv-delimiter")
             .displayName("CSV Delimiter")
-            .description("CSV Delimiter used to separate fields")
+            .description("CSV Delimiter used to separate fields. This property is only used if 'CSV' is selected for the 'Output Format' property.")
             .required(true)
             .defaultValue(",")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
@@ -201,7 +206,8 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
     public static final PropertyDescriptor HIVEQL_CSV_QUOTE = new PropertyDescriptor.Builder()
             .name("csv-quote")
             .displayName("CSV Quote")
-            .description("Whether to force quoting of CSV fields. Note that this might conflict with the setting for CSV Escape.")
+            .description("Whether to force quoting of CSV fields. Note that this might conflict with the setting for CSV Escape. "
+                    + "This property is only used if 'CSV' is selected for the 'Output Format' property.")
             .required(true)
             .allowableValues("true", "false")
             .defaultValue("true")
@@ -210,7 +216,8 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
     public static final PropertyDescriptor HIVEQL_CSV_ESCAPE = new PropertyDescriptor.Builder()
             .name("csv-escape")
             .displayName("CSV Escape")
-            .description("Whether to escape CSV strings in output. Note that this might conflict with the setting for CSV Quote.")
+            .description("Whether to escape CSV strings in output. Note that this might conflict with the setting for CSV Quote."
+                    + "This property is only used if 'CSV' is selected for the 'Output Format' property.")
             .required(true)
             .allowableValues("true", "false")
             .defaultValue("true")
@@ -220,11 +227,21 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
     public static final PropertyDescriptor HIVEQL_OUTPUT_FORMAT = new PropertyDescriptor.Builder()
             .name("hive-output-format")
             .displayName("Output Format")
-            .description("How to represent the records coming from Hive (Avro, CSV, e.g.)")
+            .description("How to represent the records coming from Hive (Avro, CSV, e.g.). If 'Use Record Writer' is selected, the 'Record Writer' property is used and "
+                    + "all other formatting properties (CSV Header, e.g.) are ignored.")
             .required(true)
-            .allowableValues(AVRO, CSV)
+            .allowableValues(AVRO, CSV, USE_RECORD_WRITER)
             .defaultValue(AVRO)
             .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .build();
+
+    public static final PropertyDescriptor RECORD_WRITER_FACTORY = new PropertyDescriptor.Builder()
+            .name("hive-record-writer")
+            .displayName("Record Writer")
+            .description("Specifies the Controller Service to use for writing out the records. This property is only used if 'Use Record Writer' "
+                    + "is selected for the 'Output Format' property.")
+            .identifiesControllerService(RecordSetWriterFactory.class)
+            .required(false)
             .build();
 
     private final static List<PropertyDescriptor> propertyDescriptors;
@@ -244,6 +261,7 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
         _propertyDescriptors.add(MAX_ROWS_PER_FLOW_FILE);
         _propertyDescriptors.add(MAX_FRAGMENTS);
         _propertyDescriptors.add(HIVEQL_OUTPUT_FORMAT);
+        _propertyDescriptors.add(RECORD_WRITER_FACTORY)
         _propertyDescriptors.add(NORMALIZE_NAMES_FOR_AVRO);
         _propertyDescriptors.add(HIVEQL_CSV_HEADER);
         _propertyDescriptors.add(HIVEQL_CSV_ALT_HEADER);
@@ -267,6 +285,12 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
     @Override
     public Set<Relationship> getRelationships() {
         return relationships;
+    }
+
+    @Override
+    protected Collection<ValidationResult> customValidate(ValidationContext validationContext) {
+        // TODO make sure Output Format and Record Writer match
+        return super.customValidate(validationContext);
     }
 
     @OnScheduled
@@ -399,6 +423,9 @@ public class SelectHiveQL extends AbstractHiveQLProcessor {
                                 } else if (CSV.equals(outputFormat)) {
                                     CsvOutputOptions options = new CsvOutputOptions(header, altHeader, delimiter, quote, escape, maxRowsPerFlowFile);
                                     nrOfRows.set(HiveJdbcCommon.convertToCsvStream(resultSet, out, options));
+                                } else if (USE_RECORD_WRITER.equals(outputFormat)) {
+                                    final RecordSetWriterFactory recordSetWriterFactory = context.getProperty(RECORD_WRITER_FACTORY).asControllerService(RecordSetWriterFactory.class);
+                                    nrOfRows.set(HiveJdbcCommon.convertToRecordStream(recordSetWriterFactory, resultSet, out, convertNamesForAvro));
                                 } else {
                                     nrOfRows.set(0L);
                                     throw new ProcessException("Unsupported output format: " + outputFormat);

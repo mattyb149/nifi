@@ -30,6 +30,15 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.schema.access.SchemaNotFoundException;
+import org.apache.nifi.serialization.RecordSetWriter;
+import org.apache.nifi.serialization.RecordSetWriterFactory;
+import org.apache.nifi.serialization.record.Record;
+import org.apache.nifi.serialization.record.RecordSchema;
+import org.apache.nifi.serialization.record.RecordSet;
+import org.apache.nifi.serialization.record.ResultSetRecordSet;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -43,6 +52,7 @@ import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static java.sql.Types.ARRAY;
@@ -84,6 +94,7 @@ public class HiveJdbcCommon {
 
     public static final String AVRO = "Avro";
     public static final String CSV = "CSV";
+    public static final String USE_RECORD_WRITER = "Use Record Writer";
 
     public static final String MIME_TYPE_AVRO_BINARY = "application/avro-binary";
     public static final String CSV_MIME_TYPE = "text/csv";
@@ -434,6 +445,32 @@ public class HiveJdbcCommon {
         return nrOfRows;
     }
 
+    // TODO move to SelectHiveQL for persistent variables (fullRecordSet, writeResultRef, e.g.)?
+    public long convertToRecordStream(RecordSetWriterFactory recordSetWriterFactory, ResultSet resultSet, OutputStream outputStream, ComponentLog logger, ResultSetRowCallback callback) throws Exception {
+        final RecordSet recordSet;
+        try {
+            if (fullRecordSet == null) {
+                final Schema avroSchema = HiveJdbcCommon.createSchema(resultSet, options);
+                final RecordSchema recordAvroSchema = AvroTypeUtil.createSchema(avroSchema);
+                fullRecordSet = new ResultSetRecordSetWithCallback(resultSet, recordAvroSchema, callback);
+                writeSchema = recordSetWriterFactory.getSchema(originalAttributes, fullRecordSet.getSchema());
+            }
+            recordSet = (maxRowsPerFlowFile > 0) ? fullRecordSet.limit(maxRowsPerFlowFile) : fullRecordSet;
+
+        } catch (final SQLException | SchemaNotFoundException | IOException e) {
+            throw new ProcessException(e);
+        }
+        try (final RecordSetWriter resultSetWriter = recordSetWriterFactory.createWriter(logger, writeSchema, outputStream, Collections.emptyMap())) {
+            writeResultRef.set(resultSetWriter.write(recordSet));
+            if (mimeType == null) {
+                mimeType = resultSetWriter.getMimeType();
+            }
+            return writeResultRef.get().getRecordCount();
+        } catch (final Exception e) {
+            throw new IOException(e);
+        }
+    }
+
     public static String normalizeNameForAvro(String inputName) {
         String normalizedName = inputName.replaceAll("[^A-Za-z0-9_]", "_");
         if (Character.isDigit(normalizedName.charAt(0))) {
@@ -459,5 +496,34 @@ public class HiveJdbcCommon {
             }
         }
         return hiveConfig;
+    }
+
+    private static class ResultSetRecordSetWithCallback extends ResultSetRecordSet {
+
+        private final ResultSetRowCallback callback;
+
+        ResultSetRecordSetWithCallback(ResultSet rs, RecordSchema readerSchema, ResultSetRowCallback callback) throws SQLException {
+            super(rs, readerSchema);
+            this.callback = callback;
+        }
+
+        @Override
+        public Record next() throws IOException {
+            try {
+                if (hasMoreRows()) {
+                    ResultSet rs = getResultSet();
+                    final Record record = createRecord(rs);
+                    if (callback != null) {
+                        callback.processRow(rs);
+                    }
+                    setMoreRows(rs.next());
+                    return record;
+                } else {
+                    return null;
+                }
+            } catch (final SQLException e) {
+                throw new IOException("Could not obtain next record from ResultSet", e);
+            }
+        }
     }
 }
