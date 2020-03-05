@@ -97,6 +97,7 @@ import org.apache.nifi.web.api.entity.CurrentUserEntity;
 import org.apache.nifi.web.api.entity.FlowComparisonEntity;
 import org.apache.nifi.web.api.entity.FlowConfigurationEntity;
 import org.apache.nifi.web.api.entity.FlowEntity;
+import org.apache.nifi.web.api.entity.FlowMetricsEntity;
 import org.apache.nifi.web.api.entity.FunnelEntity;
 import org.apache.nifi.web.api.entity.LabelEntity;
 import org.apache.nifi.web.api.entity.ParameterContextEntity;
@@ -312,6 +313,13 @@ public interface NiFiServiceFacade {
      * @return Flow configuration transfer object
      */
     FlowConfigurationEntity getFlowConfiguration();
+
+    /**
+     * Gets the metrics for the flow.
+     *
+     * @return Flow metrics transfer object
+     */
+    FlowMetricsEntity getFlowMetrics();
 
     /**
      * Updates the configuration for this controller.

@@ -249,6 +249,7 @@ import org.apache.nifi.web.api.entity.CurrentUserEntity;
 import org.apache.nifi.web.api.entity.FlowComparisonEntity;
 import org.apache.nifi.web.api.entity.FlowConfigurationEntity;
 import org.apache.nifi.web.api.entity.FlowEntity;
+import org.apache.nifi.web.api.entity.FlowMetricsEntity;
 import org.apache.nifi.web.api.entity.FunnelEntity;
 import org.apache.nifi.web.api.entity.LabelEntity;
 import org.apache.nifi.web.api.entity.ParameterContextEntity;
@@ -5292,6 +5293,16 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
 
         final ProcessorStatusDTO processorStatusDto = dtoFactory.createProcessorStatusDto(controllerFacade.getProcessorStatus(processor.getIdentifier()));
         return entityFactory.createProcessorDiagnosticsEntity(dto, revisionDto, permissionsDto, processorStatusDto, bulletins);
+    }
+
+    @Override
+    public FlowMetricsEntity getFlowMetrics() {
+        // TODO
+        final ProcessGroup processGroup = processGroupDAO.getProcessGroup("root");
+        final PermissionsDTO permissions = dtoFactory.createPermissionsDto(processGroup);
+        final ProcessGroupStatusDTO dto = dtoFactory.createProcessGroupStatusDto(processGroup, controllerFacade.getProcessGroupStatus("root"));
+
+        return entityFactory.createFlowMetricsEntity(dto, permissions);
     }
 
     @Override

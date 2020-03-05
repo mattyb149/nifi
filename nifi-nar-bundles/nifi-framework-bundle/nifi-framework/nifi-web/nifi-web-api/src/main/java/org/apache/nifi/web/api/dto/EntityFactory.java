@@ -25,6 +25,7 @@ import org.apache.nifi.web.api.dto.status.ConnectionStatisticsSnapshotDTO;
 import org.apache.nifi.web.api.dto.status.ConnectionStatusDTO;
 import org.apache.nifi.web.api.dto.status.ConnectionStatusSnapshotDTO;
 import org.apache.nifi.web.api.dto.status.ControllerServiceStatusDTO;
+import org.apache.nifi.web.api.dto.status.FlowMetricsDTO;
 import org.apache.nifi.web.api.dto.status.PortStatusDTO;
 import org.apache.nifi.web.api.dto.status.PortStatusSnapshotDTO;
 import org.apache.nifi.web.api.dto.status.ProcessGroupStatusDTO;
@@ -53,6 +54,7 @@ import org.apache.nifi.web.api.entity.ControllerConfigurationEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceReferencingComponentEntity;
 import org.apache.nifi.web.api.entity.FlowBreadcrumbEntity;
+import org.apache.nifi.web.api.entity.FlowMetricsEntity;
 import org.apache.nifi.web.api.entity.FunnelEntity;
 import org.apache.nifi.web.api.entity.LabelEntity;
 import org.apache.nifi.web.api.entity.ParameterContextEntity;
@@ -729,4 +731,10 @@ public final class EntityFactory {
         return entity;
     }
 
+    public FlowMetricsEntity createFlowMetricsEntity(final FlowMetricsDTO metrics, final PermissionsDTO permissions) {
+        final FlowMetricsEntity entity = new FlowMetricsEntity();
+        entity.setCanRead(permissions.getCanRead());
+        entity.setFlowMetrics(metrics); // always set the metrics, as it's always allowed... just need to provide permission context for merging responses
+        return entity;
+    }
 }

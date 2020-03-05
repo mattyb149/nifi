@@ -84,6 +84,7 @@ import org.apache.nifi.web.api.entity.ControllerServicesEntity;
 import org.apache.nifi.web.api.entity.ControllerStatusEntity;
 import org.apache.nifi.web.api.entity.CurrentUserEntity;
 import org.apache.nifi.web.api.entity.FlowConfigurationEntity;
+import org.apache.nifi.web.api.entity.FlowMetricsEntity;
 import org.apache.nifi.web.api.entity.HistoryEntity;
 import org.apache.nifi.web.api.entity.ParameterContextEntity;
 import org.apache.nifi.web.api.entity.ParameterContextsEntity;
@@ -160,6 +161,7 @@ import static org.apache.nifi.web.api.entity.ScheduleComponentsEntity.STATE_ENAB
 public class FlowResource extends ApplicationResource {
 
     private static final String RECURSIVE = "false";
+    private static final String TRUE = "true";
 
     private NiFiServiceFacade serviceFacade;
     private Authorizer authorizer;
@@ -378,6 +380,65 @@ public class FlowResource extends ApplicationResource {
         // get this process group flow
         final ProcessGroupFlowEntity entity = serviceFacade.getProcessGroupFlow(groupId);
         populateRemainingFlowContent(entity.getProcessGroupFlow());
+        return generateOkResponse(entity).build();
+    }
+
+    /**
+     * Retrieves the metrics of the entire flow.
+     *
+     * @return A flowMetricsEntity.
+     * @throws InterruptedException if interrupted
+     */
+    @GET
+    @Consumes(MediaType.WILDCARD)
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("metrics")
+    @ApiOperation(
+            value = "Gets all metrics for the flow from a particular node",
+            response = FlowMetricsEntity.class,
+            authorizations = {
+                    @Authorization(value = "Read - /flow")
+            }
+    )
+    @ApiResponses(
+            value = {
+                    @ApiResponse(code = 400, message = "NiFi was unable to complete the request because it was invalid. The request should not be retried without modification."),
+                    @ApiResponse(code = 401, message = "Client could not be authenticated."),
+                    @ApiResponse(code = 403, message = "Client is not authorized to make this request."),
+                    @ApiResponse(code = 404, message = "The specified resource could not be found."),
+                    @ApiResponse(code = 409, message = "The request was valid but NiFi was not in the appropriate state to process it. Retrying the same request later may be successful.")
+            }
+    )
+    public Response getFlowMetrics(@ApiParam(
+            value = "Whether all descendant process groups and the status of their content will be included. Optional, defaults to true",
+            required = false
+    )
+    @QueryParam("recursive") @DefaultValue(TRUE) Boolean recursive,
+    @ApiParam(
+            value = "Whether or not to include the breakdown per node. Optional, defaults to false",
+            required = false
+    )
+    @QueryParam("nodewise") @DefaultValue(NODEWISE) Boolean nodewise,
+    @ApiParam(
+            value = "The id of the node where to get the status.",
+            required = false
+    )
+    @QueryParam("clusterNodeId") String clusterNodeId,
+    @ApiParam(
+            value = "The process group id.",
+            required = true
+    )
+    @PathParam("id") String groupId) throws InterruptedException {
+
+        authorizeFlow();
+
+        // TODO don't replicate unless specified
+        //if (isReplicateRequest()) {
+        //    return replicate(HttpMethod.GET);
+        //}
+
+        // get this process group flow
+        final FlowMetricsEntity entity = serviceFacade.getFlowMetrics();
         return generateOkResponse(entity).build();
     }
 
