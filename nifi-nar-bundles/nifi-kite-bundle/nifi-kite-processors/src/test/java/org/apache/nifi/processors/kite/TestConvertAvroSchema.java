@@ -21,11 +21,14 @@ package org.apache.nifi.processors.kite;
 import static org.apache.nifi.processors.kite.TestUtil.streamFor;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.text.ParseException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -306,6 +309,49 @@ public class TestConvertAvroSchema {
             } else {
                 Assert.assertEquals(convertNested(goodRecord2), r);
             }
+            count++;
+        }
+        successStream.close();
+        Assert.assertEquals(2, count);
+    }
+
+    @Test
+    public void testBasicConversionWithEmbeddedInputSchema() throws IOException {
+        TestRunner runner = TestRunners.newTestRunner(ConvertAvroSchema.class);
+        runner.assertNotValid();
+
+        final String outputSchema = "{\"type\" : \"record\",\"name\" : \"PERSONS\",\"namespace\" : \"any.data\",\n" +
+                "\"fields\" : [ {\"name\" : \"PERSONID\",\"type\" : [ \"null\", \"int\" ]},\n" +
+                "    {\"name\" : \"PERSONNAME\",\"type\" : [ \"null\", \"string\" ]},\n" +
+                "    {\"name\" : \"PERSONCODE\",\"type\" : [ \"null\", \"int\" ]},\n" +
+                "    {\"name\" : \"PRODUCTID\",\"type\" : [ \"null\", \"int\" ]},\n" +
+                "    {\"name\" : \"PRODUCTNAME\",\"type\" : [ \"null\", \"string\" ]},\n" +
+                "    {\"name\" : \"PRODUCTCODE\",\"type\" : [ \"null\", \"string\" ]},\n" +
+                "    {\"name\" : \"RELID\",\"type\" : [ \"null\", \"int\" ]},\n" +
+                "    {\"name\" : \"RELNAME\",\"type\" : [ \"null\", \"string\" ]},\n" +
+                "    {\"name\" : \"RELCODE\",\"type\" : [ \"null\", \"string\" ]},\n" +
+                "    {\"name\" : \"ROWNR\",\"type\" : [ \"null\", \"long\" ]}\n" +
+                "]}";
+
+        runner.setProperty(ConvertAvroSchema.OUTPUT_SCHEMA, outputSchema);
+        runner.assertValid();
+
+        try (FileInputStream fis = new FileInputStream("src/test/resources/data.avro")) {
+            runner.enqueue(fis);
+            runner.run();
+        }
+
+        runner.assertTransferCount("success", 1);
+        runner.assertTransferCount("failure", 0);
+
+        GenericDatumReader<Record> successReader = new GenericDatumReader<Record>(new Schema.Parser().parse(outputSchema));
+        DataFileStream<Record> successStream = new DataFileStream<Record>(
+                new ByteArrayInputStream(runner.getContentAsByteArray(runner
+                        .getFlowFilesForRelationship("success").get(0))),
+                successReader);
+        int count = 0;
+        for (Record r : successStream) {
+            Assert.assertEquals("1",r.get("PRODUCTCODE"));
             count++;
         }
         successStream.close();

@@ -95,7 +95,7 @@ public class ConvertAvroSchema extends AbstractKiteConvertProcessor {
             final boolean elPresent = context
                     .isExpressionLanguageSupported(subject)
                     && context.isExpressionLanguagePresent(uri);
-            if (!elPresent) {
+            if (!elPresent && inputUri != null) {
                 try {
                     Schema outputSchema = getSchema(uri, conf);
                     Schema inputSchema = getSchema(inputUri, conf);
@@ -153,10 +153,11 @@ public class ConvertAvroSchema extends AbstractKiteConvertProcessor {
     @VisibleForTesting
     static final PropertyDescriptor INPUT_SCHEMA = new PropertyDescriptor.Builder()
             .name("Input Schema")
-            .description("Avro Schema of Input Flowfiles.  This can be a URI (dataset, view, or resource) or literal JSON schema.")
+            .description("Avro Schema of Input Flowfiles.  This can be a URI (dataset, view, or resource) or literal JSON schema. If this property is not specified, the schema is "
+                    + "expected to be embedded in the incoming Flowfile.")
             .addValidator(SCHEMA_VALIDATOR)
             .expressionLanguageSupported(true)
-            .required(true)
+            .required(false)
             .build();
 
     @VisibleForTesting
@@ -251,14 +252,18 @@ public class ConvertAvroSchema extends AbstractKiteConvertProcessor {
         String inputSchemaProperty = context.getProperty(INPUT_SCHEMA)
                 .evaluateAttributeExpressions(incomingAvro).getValue();
         final Schema inputSchema;
-        try {
-            inputSchema = getSchema(inputSchemaProperty,
-                    DefaultConfiguration.get());
-        } catch (SchemaNotFoundException e) {
-            getLogger().error("Cannot find schema: " + inputSchemaProperty);
-            session.transfer(incomingAvro, FAILURE);
-            return;
+        // TODO handle input schema embedded in incoming flowfile
+        if(inputSchemaProperty != null) {
+            try {
+                inputSchema = getSchema(inputSchemaProperty,
+                        DefaultConfiguration.get());
+            } catch (SchemaNotFoundException e) {
+                getLogger().error("Cannot find schema: " + inputSchemaProperty);
+                session.transfer(incomingAvro, FAILURE);
+                return;
+            }
         }
+
         String outputSchemaProperty = context.getProperty(OUTPUT_SCHEMA)
                 .evaluateAttributeExpressions(incomingAvro).getValue();
         final Schema outputSchema;
