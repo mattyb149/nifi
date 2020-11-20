@@ -16,11 +16,15 @@
  */
 package org.apache.nifi.processors.standard.db.impl;
 
-import org.apache.commons.lang3.StringUtils;
+import com.google.common.base.Preconditions;
 import org.apache.nifi.processors.standard.db.DatabaseAdapter;
+import org.apache.nifi.util.StringUtils;
+
+import java.util.Collection;
+import java.util.List;
 
 /**
- * A Apache Phoenix database adapter that generates ANSI SQL.
+ * An Apache Phoenix database adapter that generates ANSI SQL.
  */
 public final class PhoenixDatabaseAdapter implements DatabaseAdapter {
     public static final String NAME = "Phoenix";
@@ -86,5 +90,26 @@ public final class PhoenixDatabaseAdapter implements DatabaseAdapter {
             }
         }
         return query.toString();
+    }
+
+    @Override
+    public boolean supportsUpsert() {
+        return true;
+    }
+
+    @Override
+    public String getUpsertStatement(String tableName, List<String> columnNames, Collection<String> uniqueKeyColumnNames) {
+        Preconditions.checkArgument(!StringUtils.isEmpty(tableName), "Table name cannot be null or blank");
+        Preconditions.checkArgument(columnNames != null && !columnNames.isEmpty(), "Column names cannot be null or empty");
+
+        final StringBuilder sqlBuilder = new StringBuilder();
+        sqlBuilder.append("UPSERT INTO ");
+        sqlBuilder.append(tableName);
+        sqlBuilder.append(" (");
+        sqlBuilder.append(String.join(", ", columnNames));
+        sqlBuilder.append(") VALUES (");
+        sqlBuilder.append(StringUtils.repeat("?", ", ", columnNames.size()));
+        sqlBuilder.append(")");
+        return sqlBuilder.toString();
     }
 }
