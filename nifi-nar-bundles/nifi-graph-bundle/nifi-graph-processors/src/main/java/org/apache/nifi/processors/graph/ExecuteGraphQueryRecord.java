@@ -56,6 +56,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -167,12 +168,14 @@ public class ExecuteGraphQueryRecord extends  AbstractGraphExecutor {
         recordPathCache = new RecordPathCache(100);
     }
 
-    private List<Object> getRecordValue(Record record, RecordPath recordPath){
+    private Object getRecordValue(Record record, RecordPath recordPath){
         final RecordPathResult result = recordPath.evaluate(record);
-        return result.getSelectedFields()
-                .filter(fv -> fv.getValue() != null)
-                .map(FieldValue::getValue)
-                .collect( Collectors.toList());
+        Optional<FieldValue> valueOpt = result.getSelectedFields().findFirst();
+        if (valueOpt.isPresent()) {
+            return valueOpt.get().getValue();
+        } else {
+            return null;
+        }
     }
 
     @Override
@@ -211,6 +214,7 @@ public class ExecuteGraphQueryRecord extends  AbstractGraphExecutor {
             Record record;
             long start = System.currentTimeMillis();
             failedWriter.beginRecordSet();
+            int records = 0;
             while ((record = reader.nextRecord()) != null) {
                 FlowFile graph = session.create(input);
 
@@ -223,6 +227,9 @@ public class ExecuteGraphQueryRecord extends  AbstractGraphExecutor {
                     }
 
                     dynamicPropertyMap.putAll(input.getAttributes());
+                    if (getLogger().isDebugEnabled()) {
+                        getLogger().info("Parameter map: " + dynamicPropertyMap);
+                    }
                     List<Map<String, Object>> graphResponses = new ArrayList<>(executeQuery(recordScript, dynamicPropertyMap));
 
                     OutputStream graphOutputStream = session.write(graph);
@@ -230,7 +237,9 @@ public class ExecuteGraphQueryRecord extends  AbstractGraphExecutor {
                     graphOutputStream.write(graphOutput.getBytes(StandardCharsets.UTF_8));
                     graphOutputStream.close();
                     session.transfer(graph, GRAPH);
+                    records++;
                 } catch (Exception e) {
+                    getLogger().error("Error processing record", e);
                     // write failed records to a flowfile destined for the failure relationship
                     failedWriter.write(record);
                     session.remove(graph);
@@ -240,6 +249,7 @@ public class ExecuteGraphQueryRecord extends  AbstractGraphExecutor {
             delta = (end - start) / 1000;
             if (getLogger().isDebugEnabled()){
                 getLogger().debug(String.format("Took %s seconds.", delta));
+                getLogger().debug(String.format("Handled %d records", records));
             }
             failedWriteResult = failedWriter.finishRecordSet();
             failedWriter.flush();
