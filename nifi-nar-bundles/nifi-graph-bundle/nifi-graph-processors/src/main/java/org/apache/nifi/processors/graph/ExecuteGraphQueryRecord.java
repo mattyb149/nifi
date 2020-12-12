@@ -56,7 +56,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -170,9 +169,20 @@ public class ExecuteGraphQueryRecord extends  AbstractGraphExecutor {
 
     private Object getRecordValue(Record record, RecordPath recordPath){
         final RecordPathResult result = recordPath.evaluate(record);
-        Optional<FieldValue> valueOpt = result.getSelectedFields().findFirst();
-        if (valueOpt.isPresent()) {
-            return valueOpt.get().getValue();
+        final List<FieldValue> values = result.getSelectedFields().collect(Collectors.toList());
+        if (values != null && !values.isEmpty()) {
+            if (values.size() == 1) {
+                Object raw = values.get(0).getValue();
+
+                if (raw != null && raw.getClass().isArray()) {
+                    Object[] arr = (Object[]) raw;
+                    raw = Arrays.asList(arr);
+                }
+
+                return raw;
+            } else {
+                return values.stream().map(fv -> fv.getValue()).collect(Collectors.toList());
+            }
         } else {
             return null;
         }
