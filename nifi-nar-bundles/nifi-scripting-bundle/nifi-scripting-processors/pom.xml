@@ -95,10 +95,36 @@
             <artifactId>clojure</artifactId>
             <version>1.10.1</version>
         </dependency>
+        <!--<dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>1.4.31</version>
+        </dependency>-->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-scripting-compiler-embeddable</artifactId>
+            <version>1.4.31</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-compiler-embeddable</artifactId>
+            <version>1.4.31</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-compiler-client-embeddable</artifactId>
+            <version>1.4.31</version>
+        </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-script-util</artifactId>
-            <version>1.1.4-2</version>
+            <version>1.4.31</version>
+        </dependency>
+        <!-- For Kotlin using openapi-generator -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.7.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>

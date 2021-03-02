@@ -28,9 +28,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.script.Bindings;
 import javax.script.Invocable;
+import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
+import javax.script.SimpleBindings;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -345,6 +348,14 @@ public class InvokeScriptedProcessor extends AbstractSessionFactoryProcessor {
             // get the engine and ensure its invocable
             if (scriptEngine instanceof Invocable) {
                 final Invocable invocable = (Invocable) scriptEngine;
+
+                Bindings bindings = scriptEngine.getBindings(ScriptContext.ENGINE_SCOPE);
+                if (bindings == null) {
+                    bindings = new SimpleBindings();
+                }
+                bindings.put("log", getLogger());
+                bindings.put("processor", null);
+                scriptEngine.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
 
                 // Find a custom configurator and invoke their eval() method
                 ScriptEngineConfigurator configurator = scriptingComponentHelper.scriptEngineConfiguratorMap.get(scriptingComponentHelper.getScriptEngineName().toLowerCase());

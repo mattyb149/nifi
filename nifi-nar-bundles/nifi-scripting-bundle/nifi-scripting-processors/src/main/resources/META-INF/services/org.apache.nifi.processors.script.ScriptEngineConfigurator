@@ -17,3 +17,4 @@ org.apache.nifi.script.impl.ClojureScriptEngineConfigurator
 org.apache.nifi.script.impl.JythonScriptEngineConfigurator
 org.apache.nifi.script.impl.GroovyScriptEngineConfigurator
 org.apache.nifi.script.impl.JavascriptScriptEngineConfigurator
+org.apache.nifi.script.impl.KotlinScriptEngineConfigurator

@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-val session = bindings["session"] as org.apache.nifi.processor.ProcessSession
-val REL_SUCCESS = bindings["REL_SUCCESS"] as org.apache.nifi.processor.Relationship
-
-var flowFile = session.get();
+val log = bindings["log"] as ComponentLog
+val session = bindings["session"] as ProcessSession
+val context = bindings["context"] as ProcessContext
+val REL_SUCCESS = bindings["REL_SUCCESS"] as Relationship
+var flowFile = session.get()
 flowFile?.let {
     flowFile = session.putAttribute(flowFile, "from-content", "test content")
     session.transfer(flowFile, REL_SUCCESS)
