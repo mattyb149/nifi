@@ -22,6 +22,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -62,9 +63,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -164,6 +168,7 @@ public class KafkaRecordSink_1_0 extends AbstractControllerService implements Re
     private volatile long maxAckWaitMillis;
     private volatile String topic;
     private volatile Producer<byte[], byte[]> producer;
+    private final Queue<Future<RecordMetadata>> ackQ = new LinkedList<>();
 
     @Override
     protected void init(final ControllerServiceInitializationContext context) throws InitializationException {
@@ -265,6 +270,8 @@ public class KafkaRecordSink_1_0 extends AbstractControllerService implements Re
                 }
             }
 
+            acknowledgeTransmission();
+
             return WriteResult.of(recordCount, attributes);
         } catch (IOException ioe) {
             throw ioe;
@@ -275,12 +282,20 @@ public class KafkaRecordSink_1_0 extends AbstractControllerService implements Re
 
     public void sendMessage(String topic, byte[] payload) throws IOException, ExecutionException {
         final ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topic, null, null, payload);
+        // Add the Future to the queue
+        ackQ.add(producer.send(record, (metadata, exception) -> {
+            if (exception != null) {
+                throw new KafkaSendException(exception);
+            }
+        }));
+    }
+
+    public void acknowledgeTransmission() throws IOException, ExecutionException {
         try {
-            producer.send(record, (metadata, exception) -> {
-                if (exception != null) {
-                    throw new KafkaSendException(exception);
-                }
-            }).get(maxAckWaitMillis, TimeUnit.MILLISECONDS);
+            Future<RecordMetadata> ack;
+            while ((ack = ackQ.poll()) != null) {
+                ack.get(maxAckWaitMillis, TimeUnit.MILLISECONDS);
+            }
         } catch (KafkaSendException kse) {
             Throwable t = kse.getCause();
             if (t instanceof IOException) {
