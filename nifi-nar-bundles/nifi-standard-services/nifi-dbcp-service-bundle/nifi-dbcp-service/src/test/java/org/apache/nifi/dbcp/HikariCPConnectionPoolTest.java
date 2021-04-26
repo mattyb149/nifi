@@ -131,7 +131,7 @@ public class HikariCPConnectionPoolTest {
     }
 
     /**
-     * Checks to ensure that settings have been passed down into the DBCP
+     * Checks to ensure that settings have been passed down into the HikariCP
      */
     @Test
     public void testIdleSettingsAreSet() throws InitializationException {
