@@ -28,6 +28,7 @@
 
     <modules>
         <module>nifi-jolt-record-processors</module>
+        <module>nifi-jolt-transform-record-ui</module>
         <module>nifi-jolt-record-nar</module>
     </modules>
 
@@ -61,6 +62,12 @@
                 <groupId>com.bazaarvoice.jolt</groupId>
                 <artifactId>json-utils</artifactId>
                 <version>${jolt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.nifi</groupId>
+                <artifactId>nifi-jolt-transform-record-ui</artifactId>
+                <type>war</type>
+                <version>1.14.0-SNAPSHOT</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
