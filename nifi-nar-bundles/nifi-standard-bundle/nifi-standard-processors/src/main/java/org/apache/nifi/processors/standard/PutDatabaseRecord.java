@@ -130,6 +130,8 @@ public class PutDatabaseRecord extends AbstractProcessor {
             "Any field in the document that cannot be mapped to a column in the database is ignored");
     static final AllowableValue FAIL_UNMATCHED_FIELD = new AllowableValue("Fail on Unmatched Fields", "Fail on Unmatched Fields",
             "If the document has any field that cannot be mapped to a column in the database, the FlowFile will be routed to the failure relationship");
+    static final AllowableValue CREATE_COLUMN_ON_UNMATCHED_FIELD = new AllowableValue("Create Column on Unmatched Fields", "Create Column on Unmatched Fields",
+                      "If the document has any field that cannot be mapped to a column in the database, the table will be altered by adding the corresponding column");
     static final AllowableValue IGNORE_UNMATCHED_COLUMN = new AllowableValue("Ignore Unmatched Columns",
             "Ignore Unmatched Columns",
             "Any column in the database that does not have a field in the document will be assumed to not be required.  No notification will be logged");
@@ -250,7 +252,7 @@ public class PutDatabaseRecord extends AbstractProcessor {
             .name("put-db-record-unmatched-field-behavior")
             .displayName("Unmatched Field Behavior")
             .description("If an incoming record has a field that does not map to any of the database table's columns, this property specifies how to handle the situation")
-            .allowableValues(IGNORE_UNMATCHED_FIELD, FAIL_UNMATCHED_FIELD)
+            .allowableValues(IGNORE_UNMATCHED_FIELD, FAIL_UNMATCHED_FIELD, CREATE_COLUMN_ON_UNMATCHED_FIELD)
             .defaultValue(IGNORE_UNMATCHED_FIELD.getValue())
             .build();
 
@@ -260,6 +262,18 @@ public class PutDatabaseRecord extends AbstractProcessor {
             .description("If an incoming record does not have a field mapping for all of the database table's columns, this property specifies how to handle the situation")
             .allowableValues(IGNORE_UNMATCHED_COLUMN, WARNING_UNMATCHED_COLUMN, FAIL_UNMATCHED_COLUMN)
             .defaultValue(FAIL_UNMATCHED_COLUMN.getValue())
+            .build();
+
+    static final PropertyDescriptor CREATE_TABLE = new PropertyDescriptor.Builder()
+            .name("put-db-record-create-table")
+            .displayName("Create Table Strategy")
+            .description("Whether to create the table (using the incoming flowfile's schema as the table schema) if it does not exist. This property is only used for statement "
+                    + "types of INSERT or UPSERT, otherwise it is ignored.")
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .dependsOn(STATEMENT_TYPE, INSERT_TYPE, UPSERT_TYPE)
             .build();
 
     static final PropertyDescriptor UPDATE_KEYS = new Builder()
@@ -391,6 +405,7 @@ public class PutDatabaseRecord extends AbstractProcessor {
         pds.add(TRANSLATE_FIELD_NAMES);
         pds.add(UNMATCHED_FIELD_BEHAVIOR);
         pds.add(UNMATCHED_COLUMN_BEHAVIOR);
+        pds.add(CREATE_TABLE);
         pds.add(UPDATE_KEYS);
         pds.add(FIELD_CONTAINING_SQL);
         pds.add(ALLOW_MULTIPLE_STATEMENTS);
@@ -1444,6 +1459,7 @@ public class PutDatabaseRecord extends AbstractProcessor {
                             qualifiedNameSegments.add(tableName);
                         }
                         if (!tblrs.next()) {
+                            if()
 
                             throw new SQLException("Table "
                                     + String.join(".", qualifiedNameSegments)
@@ -1662,7 +1678,7 @@ public class PutDatabaseRecord extends AbstractProcessor {
 
     static class DMLSettings {
         private final boolean translateFieldNames;
-        private final boolean ignoreUnmappedFields;
+        private final String unmappedFieldStrategy;
 
         // Is the unmatched column behaviour fail or warning?
         private final boolean failUnmappedColumns;
@@ -1676,7 +1692,7 @@ public class PutDatabaseRecord extends AbstractProcessor {
 
         private DMLSettings(ProcessContext context) {
             translateFieldNames = context.getProperty(TRANSLATE_FIELD_NAMES).asBoolean();
-            ignoreUnmappedFields = IGNORE_UNMATCHED_FIELD.getValue().equalsIgnoreCase(context.getProperty(UNMATCHED_FIELD_BEHAVIOR).getValue());
+            unmappedFieldStrategy = context.getProperty(UNMATCHED_FIELD_BEHAVIOR).getValue();
 
             failUnmappedColumns = FAIL_UNMATCHED_COLUMN.getValue().equalsIgnoreCase(context.getProperty(UNMATCHED_COLUMN_BEHAVIOR).getValue());
             warningUnmappedColumns = WARNING_UNMATCHED_COLUMN.getValue().equalsIgnoreCase(context.getProperty(UNMATCHED_COLUMN_BEHAVIOR).getValue());
