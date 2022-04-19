@@ -19,8 +19,8 @@ package org.apache.nifi.minifi.bootstrap.configuration.differentiators;
 
 import okhttp3.Request;
 import org.apache.commons.io.FileUtils;
-import org.apache.nifi.minifi.bootstrap.ConfigurationFileHolder;
-import org.apache.nifi.minifi.bootstrap.configuration.differentiators.interfaces.Differentiator;
+import org.apache.nifi.c2.client.api.ConfigurationFileHolder;
+import org.apache.nifi.c2.client.api.Differentiator;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
