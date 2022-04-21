@@ -16,21 +16,20 @@
  */
 package org.apache.nifi.c2.client.api;
 
+import java.util.Optional;
 import org.apache.nifi.c2.protocol.api.C2Heartbeat;
 import org.apache.nifi.c2.protocol.api.C2HeartbeatResponse;
-import org.apache.nifi.c2.protocol.api.C2Operation;
 import org.apache.nifi.c2.protocol.api.C2OperationAck;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 /**
  * Defines interface methods used to implement a C2 Client. The controller can be application-specific but is used for such tasks as updating the flow.
  */
 public interface C2Client {
 
-    C2HeartbeatResponse publishHeartbeat(C2Heartbeat heartbeat) throws IOException;
+    Optional<C2HeartbeatResponse> publishHeartbeat(C2Heartbeat heartbeat) throws IOException;
 
     ByteBuffer retrieveUpdateContent(FlowUpdateInfo flowUpdateInfo);
 

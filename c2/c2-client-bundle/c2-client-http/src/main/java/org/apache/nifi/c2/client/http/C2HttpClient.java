@@ -18,6 +18,7 @@ package org.apache.nifi.c2.client.http;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Optional;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -28,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.c2.client.C2ClientBase;
 import org.apache.nifi.c2.client.C2ClientConfig;
 import org.apache.nifi.c2.client.api.FlowUpdateInfo;
+import org.apache.nifi.c2.protocol.api.C2Heartbeat;
 import org.apache.nifi.c2.protocol.api.C2HeartbeatResponse;
 import org.apache.nifi.c2.protocol.api.C2OperationAck;
 import org.slf4j.Logger;
@@ -41,7 +43,6 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.ConnectException;
 import java.nio.ByteBuffer;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
@@ -50,6 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class C2HttpClient extends C2ClientBase {
 
     private static final Logger logger = LoggerFactory.getLogger(C2HttpClient.class);
+    private static final MediaType MEDIA_TYPE_APPLICATION_JSON = MediaType.parse("application/json");
 
     protected AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
     protected final C2ClientConfig clientConfig;
@@ -75,29 +77,40 @@ public class C2HttpClient extends C2ClientBase {
     }
 
     @Override
-    protected C2HeartbeatResponse sendHeartbeat(final String heartbeatString) {
-        final RequestBody requestBody = RequestBody.create(heartbeatString, MediaType.parse("application/json"));
-        logger.debug("Performing request to {}", clientConfig.getC2Url());
-        final Request.Builder requestBuilder = new Request.Builder()
-                .post(requestBody)
-                .url(clientConfig.getC2Url());
+    public Optional<C2HeartbeatResponse> publishHeartbeat(C2Heartbeat heartbeat) {
+        return serialiseHeartbeat(heartbeat).flatMap(this::sendHeartbeat);
+    }
+
+    private Optional<C2HeartbeatResponse> sendHeartbeat(String heartbeat) {
+        logger.debug("Sending heartbeat to {}", clientConfig.getC2Url());
+
+        Optional<C2HeartbeatResponse> c2HeartbeatResponse = Optional.empty();
+        Request request = new Request.Builder()
+            .post(RequestBody.create(heartbeat, MEDIA_TYPE_APPLICATION_JSON))
+            .url(clientConfig.getC2Url())
+            .build();
 
         try {
-            final Response heartbeatResponse = httpClientReference.get().newCall(requestBuilder.build()).execute();
-            int statusCode = heartbeatResponse.code();
-            final String responseBody = heartbeatResponse.body().string();
-            logger.debug("Received heartbeat response (Status={}) {}", statusCode, responseBody);
-            ObjectMapper objMapper = new ObjectMapper();
-            // Create C2HeartbeatResponse, populate it, and return it
-            C2HeartbeatResponse c2HeartbeatResponse = objMapper.readValue(responseBody, C2HeartbeatResponse.class);
-            return c2HeartbeatResponse;
-        } catch (ConnectException ce) {
-            logger.error("Connection error while sending heartbeat", ce);
-            return null;
-        } catch (IOException e) {
-            logger.error("Could not transmit", e);
-            throw new RuntimeException(e);
+            Response heartbeatResponse = httpClientReference.get().newCall(request).execute();
+            c2HeartbeatResponse = getResponseBody(heartbeatResponse).flatMap(response -> deserialize(response, C2HeartbeatResponse.class));
+        } catch (IOException ce) {
+            logger.error("Error while sending heartbeat", ce);
         }
+
+        return c2HeartbeatResponse;
+    }
+
+    private Optional<String> getResponseBody(Response response) {
+        String responseBody = null;
+
+        try {
+            responseBody = response.body().string();
+            logger.debug("Received response (Status={}) {}", response.code(), responseBody);
+        } catch (IOException e) {
+            logger.error("Could not get response body: ", e);
+        }
+
+        return Optional.ofNullable(responseBody);
     }
 
     private void setSslSocketFactory(OkHttpClient.Builder okHttpClientBuilder) throws Exception {

@@ -17,16 +17,14 @@
 package org.apache.nifi.c2.client;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Optional;
 import org.apache.nifi.c2.client.api.C2Client;
-import org.apache.nifi.c2.client.api.Payload;
 import org.apache.nifi.c2.protocol.api.C2Heartbeat;
-import org.apache.nifi.c2.protocol.api.C2HeartbeatResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 
 public abstract class C2ClientBase implements C2Client {
 
@@ -37,39 +35,39 @@ public abstract class C2ClientBase implements C2Client {
     public C2ClientBase() {
         objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    }
-
-    @Override
-    public C2HeartbeatResponse publishHeartbeat(C2Heartbeat heartbeat) throws IOException {
-        String heartbeatString = "";
-
-        if (heartbeat != null) {
-
-            final Payload payload = new Payload(heartbeat);
-            try {
-                heartbeatString = convertPayloadToString(payload);
-            } catch (IOException e) {
-                logger.info("Instance is currently restarting and cannot heartbeat.");
-                return null;
-            }
-
-            C2HeartbeatResponse c2HeartbeatResponse = sendHeartbeat(heartbeatString);
-            return c2HeartbeatResponse;
-        }
-        return null;
-    }
-
-    private String convertPayloadToString(Payload payload) throws IOException {
-        logger.trace("Generating payload as string...");
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-
-        String heartbeatString = "";
-        if (payload != null) {
-            heartbeatString = objectMapper.writeValueAsString(payload);
-            logger.trace("Payload: {}", heartbeatString);
-        }
-        return heartbeatString;
     }
 
-    protected abstract C2HeartbeatResponse sendHeartbeat(final String heartbeatString);
+    protected Optional<String> serialiseHeartbeat(C2Heartbeat heartbeat) {
+        if (heartbeat == null) {
+            logger.trace("Heartbeat was null. Returning empty");
+            return Optional.empty();
+        }
+
+        String heartbeatString = null;
+        try {
+            heartbeatString = objectMapper.writeValueAsString(heartbeat);
+            logger.trace("Serialized C2Heartbeat: {}", heartbeatString);
+        } catch (JsonProcessingException e) {
+            logger.error("Can't serialise C2Heartbeat: ", e);
+        }
+
+        return Optional.ofNullable(heartbeatString);
+    }
+
+    protected <T> Optional<T> deserialize(String content, Class<T> valueType) {
+        if (content == null) {
+            logger.trace("Content for deserialization was null. Returning empty.");
+            return Optional.empty();
+        }
+
+        T responseObject = null;
+        try {
+            responseObject = objectMapper.readValue(content, valueType);
+        } catch (JsonProcessingException e) {
+            logger.error("Can't deserialize response object: ", e);
+        }
+
+        return Optional.ofNullable(responseObject);
+    }
 }
