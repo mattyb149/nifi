@@ -16,8 +16,6 @@
  */
 package org.apache.nifi.c2;
 
-import static org.apache.commons.lang3.StringUtils.*;
-
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.nifi.bundle.BundleCoordinate;
 import org.apache.nifi.c2.client.C2ClientConfig;
@@ -40,6 +38,7 @@ import org.apache.nifi.c2.protocol.api.NetworkInfo;
 import org.apache.nifi.c2.protocol.api.OperandType;
 import org.apache.nifi.c2.protocol.api.OperationType;
 import org.apache.nifi.c2.protocol.api.SystemInfo;
+import org.apache.nifi.c2.serializer.C2JacksonSerializer;
 import org.apache.nifi.components.ConfigurableComponent;
 import org.apache.nifi.controller.FlowController;
 import org.apache.nifi.controller.exception.ProcessorInstantiationException;
@@ -82,6 +81,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
+import static org.apache.commons.lang3.StringUtils.EMPTY;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+
 public class C2ClientService {
 
     private static final Logger logger = LoggerFactory.getLogger(C2ClientService.class);
@@ -109,7 +112,7 @@ public class C2ClientService {
 
     public C2ClientService(final NiFiProperties niFiProperties, final long clientHeartbeatPeriod, final FlowController flowController) {
         this.clientConfig = generateClientConfig(niFiProperties);
-        this.c2Client = new C2HttpClient(clientConfig);
+        this.c2Client = new C2HttpClient(clientConfig, new C2JacksonSerializer());
         this.period = clientHeartbeatPeriod;
         this.flowController = flowController;
     }

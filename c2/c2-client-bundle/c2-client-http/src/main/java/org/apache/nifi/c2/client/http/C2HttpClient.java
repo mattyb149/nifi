@@ -26,8 +26,9 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.nifi.c2.client.C2ClientBase;
 import org.apache.nifi.c2.client.C2ClientConfig;
+import org.apache.nifi.c2.client.api.C2Client;
+import org.apache.nifi.c2.client.api.C2Serializer;
 import org.apache.nifi.c2.client.api.FlowUpdateInfo;
 import org.apache.nifi.c2.protocol.api.C2Heartbeat;
 import org.apache.nifi.c2.protocol.api.C2HeartbeatResponse;
@@ -48,17 +49,19 @@ import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class C2HttpClient extends C2ClientBase {
+public class C2HttpClient implements C2Client {
 
     private static final Logger logger = LoggerFactory.getLogger(C2HttpClient.class);
     private static final MediaType MEDIA_TYPE_APPLICATION_JSON = MediaType.parse("application/json");
 
-    protected AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
-    protected final C2ClientConfig clientConfig;
+    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
+    private final C2ClientConfig clientConfig;
+    private final C2Serializer serializer;
 
-    public C2HttpClient(C2ClientConfig clientConfig) {
+    public C2HttpClient(C2ClientConfig clientConfig, C2Serializer serializer) {
         super();
         this.clientConfig = clientConfig;
+        this.serializer = serializer;
         final OkHttpClient.Builder okHttpClientBuilder = new OkHttpClient.Builder();
 
         // Set whether to follow redirects
@@ -78,7 +81,7 @@ public class C2HttpClient extends C2ClientBase {
 
     @Override
     public Optional<C2HeartbeatResponse> publishHeartbeat(C2Heartbeat heartbeat) {
-        return serialiseHeartbeat(heartbeat).flatMap(this::sendHeartbeat);
+        return serializer.serialize(heartbeat).flatMap(this::sendHeartbeat);
     }
 
     private Optional<C2HeartbeatResponse> sendHeartbeat(String heartbeat) {
@@ -92,7 +95,7 @@ public class C2HttpClient extends C2ClientBase {
 
         try {
             Response heartbeatResponse = httpClientReference.get().newCall(request).execute();
-            c2HeartbeatResponse = getResponseBody(heartbeatResponse).flatMap(response -> deserialize(response, C2HeartbeatResponse.class));
+            c2HeartbeatResponse = getResponseBody(heartbeatResponse).flatMap(response -> serializer.deserialize(response, C2HeartbeatResponse.class));
         } catch (IOException ce) {
             logger.error("Error while sending heartbeat", ce);
         }
