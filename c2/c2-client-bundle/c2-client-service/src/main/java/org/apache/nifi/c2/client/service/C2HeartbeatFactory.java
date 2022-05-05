@@ -50,14 +50,13 @@ public class C2HeartbeatFactory {
     private static final String DEVICE_IDENTIFIER_FILENAME = "device-identifier";
 
     private final C2ClientConfig clientConfig;
-    private final File confDirectory;
 
     private String agentId;
     private String deviceId;
+    private File confDirectory;
 
-    public C2HeartbeatFactory(C2ClientConfig clientConfig, File confDirectory) {
+    public C2HeartbeatFactory(C2ClientConfig clientConfig) {
         this.clientConfig = clientConfig;
-        this.confDirectory = confDirectory;
     }
 
     public C2Heartbeat create(RuntimeInfoWrapper runtimeInfoWrapper) {
@@ -109,7 +108,7 @@ public class C2HeartbeatFactory {
             if (isNotBlank(rawAgentId)) {
                 agentId = rawAgentId.trim();
             } else {
-                File idFile = new File(confDirectory, AGENT_IDENTIFIER_FILENAME);
+                File idFile = new File(getConfDirectory(), AGENT_IDENTIFIER_FILENAME);
                 agentId = new PersistentUuidGenerator(idFile).generate();
             }
         }
@@ -211,7 +210,7 @@ public class C2HeartbeatFactory {
     }
 
     private String getConfiguredDeviceId() {
-        File idFile = new File(confDirectory, DEVICE_IDENTIFIER_FILENAME);
+        File idFile = new File(getConfDirectory(), DEVICE_IDENTIFIER_FILENAME);
         return new PersistentUuidGenerator(idFile).generate();
     }
 
@@ -222,5 +221,19 @@ public class C2HeartbeatFactory {
         systemInfo.setvCores(Runtime.getRuntime().availableProcessors());
 
         return systemInfo;
+    }
+
+    private File getConfDirectory() {
+        if (confDirectory == null) {
+            String configDirectoryName = clientConfig.getConfDirectory();
+            File configDirectory = new File(configDirectoryName);
+            if (!configDirectory.exists() || !configDirectory.isDirectory()) {
+                throw new IllegalStateException("Specified conf directory " + configDirectoryName + " does not exist or is not a directory.");
+            }
+
+            confDirectory = configDirectory;
+        }
+
+        return confDirectory;
     }
 }

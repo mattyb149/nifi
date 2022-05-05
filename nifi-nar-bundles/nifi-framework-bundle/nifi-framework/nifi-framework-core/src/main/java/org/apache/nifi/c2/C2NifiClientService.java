@@ -40,28 +40,18 @@ import org.apache.nifi.util.NiFiProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 public class C2NifiClientService {
 
     private static final Logger logger = LoggerFactory.getLogger(C2NifiClientService.class);
-    private static final String minifiHome = System.getenv("MINIFI_HOME");
     private static final String DEFAULT_CONF_DIR = "./conf";
-    private static final String DEFAULT_CONFIG_FILE = DEFAULT_CONF_DIR + "/bootstrap.conf";
     private static final String ROOT_GROUP_ID = "root";
-    private static final String RUNTIME_MANIFEST_IDENTIFIER = "minifi";
-    private static final String RUNTIME_TYPE = "minifi-java";
-    private static final String CONF_DIR_KEY = "conf.dir";
     private static final Long INITIAL_DELAY = 0L;
     private static final Integer TERMINATION_WAIT = 5000;
 
@@ -70,18 +60,22 @@ public class C2NifiClientService {
     private final ScheduledThreadPoolExecutor scheduledExecutorService = new ScheduledThreadPoolExecutor(1);
     private final ExtensionManifestParser extensionManifestParser = new JAXBExtensionManifestParser();
 
-    final RuntimeManifestService runtimeManifestService =
-            new StandardRuntimeManifestService(ExtensionManagerHolder.getExtensionManager(), extensionManifestParser, RUNTIME_MANIFEST_IDENTIFIER, RUNTIME_TYPE);
-    private String bootstrapConfigFilename = System.getProperty("org.apache.nifi.minifi.bootstrap.config.file");
+    private final RuntimeManifestService runtimeManifestService;
     private final long heartbeatPeriod;
 
     public C2NifiClientService(final NiFiProperties niFiProperties, final long clientHeartbeatPeriod, final FlowController flowController) {
         C2ClientConfig clientConfig = generateClientConfig(niFiProperties);
+        this.runtimeManifestService = new StandardRuntimeManifestService(
+            ExtensionManagerHolder.getExtensionManager(),
+            extensionManifestParser,
+            clientConfig.getRuntimeManifestIdentifier(),
+            clientConfig.getRuntimeType()
+        );
         this.heartbeatPeriod = clientHeartbeatPeriod;
         this.flowController = flowController;
         this.c2ClientService = new C2ClientService(
             new C2HttpClient(clientConfig, new C2JacksonSerializer()),
-            new C2HeartbeatFactory(clientConfig, getConfDirectory())
+            new C2HeartbeatFactory(clientConfig)
         );
     }
 
@@ -90,6 +84,9 @@ public class C2NifiClientService {
                 .agentClass(properties.getProperty(C2NiFiProperties.C2_AGENT_CLASS_KEY, ""))
                 .agentIdentifier(properties.getProperty(C2NiFiProperties.C2_AGENT_HEARTBEAT_PERIOD_KEY, String.valueOf(C2NiFiProperties.C2_AGENT_DEFAULT_HEARTBEAT_PERIOD)))
                 .c2Url(properties.getProperty(C2NiFiProperties.C2_REST_URL_KEY, ""))
+                .confDirectory(properties.getProperty(C2NiFiProperties.C2_CONFIG_DIRECTORY_KEY, DEFAULT_CONF_DIR))
+                .runtimeManifestIdentifier(properties.getProperty(C2NiFiProperties.C2_RUNTIME_MANIFEST_IDENTIFIER_KEY, ""))
+                .runtimeType(properties.getProperty(C2NiFiProperties.C2_RUNTIME_TYPE_KEY, ""))
                 .c2AckUrl(properties.getProperty(C2NiFiProperties.C2_REST_URL_ACK_KEY, ""))
                 .truststoreFilename(properties.getProperty(C2NiFiProperties.TRUSTSTORE_LOCATION_KEY, ""))
                 .truststorePassword(properties.getProperty(C2NiFiProperties.TRUSTSTORE_PASSWORD_KEY, ""))
@@ -164,40 +161,5 @@ public class C2NifiClientService {
         }
 
         return processGroupStatus;
-    }
-
-    private File getConfDirectory() {
-        final Properties bootstrapProperties = getBootstrapProperties();
-        final String confDirectoryName = defaultIfBlank(bootstrapProperties.getProperty(CONF_DIR_KEY), DEFAULT_CONF_DIR);
-        final File confDirectory = new File(confDirectoryName);
-        if (!confDirectory.exists() || !confDirectory.isDirectory()) {
-            throw new IllegalStateException("Specified conf directory " + confDirectoryName + " does not exist or is not a directory.");
-        }
-
-        return confDirectory;
-    }
-
-    private Properties getBootstrapProperties() {
-        final Properties bootstrapProperties = new Properties();
-
-        try (final FileInputStream fis = new FileInputStream(getBootstrapConfFile())) {
-            bootstrapProperties.load(fis);
-        } catch (Exception e) {
-            logger.error("Could not locate bootstrap.conf file specified as {}", getBootstrapConfFile());
-        }
-
-        return bootstrapProperties;
-    }
-
-    private File getBootstrapConfFile() {
-        if (bootstrapConfigFilename == null) {
-            if (minifiHome != null) {
-                final File nifiHomeFile = new File(minifiHome.trim());
-                final File configFile = new File(nifiHomeFile, DEFAULT_CONFIG_FILE);
-                bootstrapConfigFilename = configFile.getAbsolutePath();
-            }
-        }
-
-        return new File(bootstrapConfigFilename != null ? bootstrapConfigFilename : DEFAULT_CONFIG_FILE);
     }
 }
