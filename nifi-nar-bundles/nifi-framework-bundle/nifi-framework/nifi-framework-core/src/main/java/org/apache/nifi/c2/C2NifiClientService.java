@@ -63,7 +63,7 @@ public class C2NifiClientService {
     private final RuntimeManifestService runtimeManifestService;
     private final long heartbeatPeriod;
 
-    public C2NifiClientService(final NiFiProperties niFiProperties, final long clientHeartbeatPeriod, final FlowController flowController) {
+    public C2NifiClientService(final NiFiProperties niFiProperties, final FlowController flowController) {
         C2ClientConfig clientConfig = generateClientConfig(niFiProperties);
         this.runtimeManifestService = new StandardRuntimeManifestService(
             ExtensionManagerHolder.getExtensionManager(),
@@ -71,7 +71,7 @@ public class C2NifiClientService {
             clientConfig.getRuntimeManifestIdentifier(),
             clientConfig.getRuntimeType()
         );
-        this.heartbeatPeriod = clientHeartbeatPeriod;
+        this.heartbeatPeriod = clientConfig.getHeartbeatPeriod();
         this.flowController = flowController;
         this.c2ClientService = new C2ClientService(
             new C2HttpClient(clientConfig, new C2JacksonSerializer()),
@@ -82,7 +82,9 @@ public class C2NifiClientService {
     private C2ClientConfig generateClientConfig(NiFiProperties properties) {
         return new C2ClientConfig.Builder()
                 .agentClass(properties.getProperty(C2NiFiProperties.C2_AGENT_CLASS_KEY, ""))
-                .agentIdentifier(properties.getProperty(C2NiFiProperties.C2_AGENT_HEARTBEAT_PERIOD_KEY, String.valueOf(C2NiFiProperties.C2_AGENT_DEFAULT_HEARTBEAT_PERIOD)))
+                .agentIdentifier(properties.getProperty(C2NiFiProperties.C2_AGENT_IDENTIFIER_KEY))
+                .heartbeatPeriod(Long.valueOf(properties.getProperty(C2NiFiProperties.C2_AGENT_HEARTBEAT_PERIOD_KEY,
+                    String.valueOf(C2NiFiProperties.C2_AGENT_DEFAULT_HEARTBEAT_PERIOD))))
                 .c2Url(properties.getProperty(C2NiFiProperties.C2_REST_URL_KEY, ""))
                 .confDirectory(properties.getProperty(C2NiFiProperties.C2_CONFIG_DIRECTORY_KEY, DEFAULT_CONF_DIR))
                 .runtimeManifestIdentifier(properties.getProperty(C2NiFiProperties.C2_RUNTIME_MANIFEST_IDENTIFIER_KEY, ""))
