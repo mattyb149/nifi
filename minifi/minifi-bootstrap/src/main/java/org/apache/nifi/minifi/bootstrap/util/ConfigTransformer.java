@@ -138,7 +138,7 @@ public final class ConfigTransformer {
             .map(Properties::entrySet)
             .orElse(Collections.emptySet())
             .stream()
-            .filter(entry -> ((String) entry.getKey()).startsWith("nifi.c2"))
+            .filter(entry -> ((String) entry.getKey()).startsWith("c2"))
             .forEach(entry -> configSchema.getNifiPropertiesOverrides().putIfAbsent((String) entry.getKey(), (String) entry.getValue()));
 
         // Create nifi.properties and flow.xml.gz in memory
