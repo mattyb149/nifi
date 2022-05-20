@@ -21,22 +21,22 @@ import java.util.Objects;
 
 public class FlowUpdateInfo {
     private final String flowUpdateUrl;
-    private final String requestId;
+    private final String flowId;
 
-    public FlowUpdateInfo(final String flowUpdateUrl, final String requestId) {
+    public FlowUpdateInfo(String flowUpdateUrl) {
         this.flowUpdateUrl = flowUpdateUrl;
-        this.requestId = requestId;
+        this.flowId = parseFlowId(flowUpdateUrl);
     }
 
     public String getFlowUpdateUrl() {
         return flowUpdateUrl;
     }
 
-    public String getRequestId() {
-        return requestId;
+    public String getFlowId() {
+        return flowId;
     }
 
-    public String getFlowId() {
+    private String parseFlowId(String flowUpdateUrl) {
         try {
             final URI flowUri = new URI(flowUpdateUrl);
             final String flowUriPath = flowUri.getPath();
@@ -54,11 +54,11 @@ public class FlowUpdateInfo {
         if (o == null || getClass() != o.getClass()) return false;
         FlowUpdateInfo that = (FlowUpdateInfo) o;
         return Objects.equals(flowUpdateUrl, that.flowUpdateUrl)
-            && Objects.equals(requestId, that.requestId);
+            && Objects.equals(flowId, that.flowId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(flowUpdateUrl, requestId);
+        return Objects.hash(flowUpdateUrl, flowId);
     }
 }

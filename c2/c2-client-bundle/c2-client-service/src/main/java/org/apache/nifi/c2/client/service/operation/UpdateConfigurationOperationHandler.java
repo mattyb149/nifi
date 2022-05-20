@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import org.apache.nifi.c2.client.api.C2Client;
 import org.apache.nifi.c2.client.api.FlowUpdateInfo;
+import org.apache.nifi.c2.client.service.FlowUpdateInfoHolder;
 import org.apache.nifi.c2.protocol.api.C2Operation;
 import org.apache.nifi.c2.protocol.api.C2OperationAck;
 import org.apache.nifi.c2.protocol.api.C2OperationState;
@@ -41,12 +42,12 @@ public class UpdateConfigurationOperationHandler implements C2OperationHandler {
 
     private final C2Client client;
     private final Function<ByteBuffer, Boolean> updateFlow;
+    private final FlowUpdateInfoHolder flowUpdateInfoHolder;
 
-    private FlowUpdateInfo currentFlowUpdateInfo;
-
-    public UpdateConfigurationOperationHandler(C2Client client, Function<ByteBuffer, Boolean> updateFlow) {
+    public UpdateConfigurationOperationHandler(C2Client client, FlowUpdateInfoHolder flowUpdateInfoHolder, Function<ByteBuffer, Boolean> updateFlow) {
         this.client = client;
         this.updateFlow = updateFlow;
+        this.flowUpdateInfoHolder = flowUpdateInfoHolder;
     }
 
     @Override
@@ -72,15 +73,15 @@ public class UpdateConfigurationOperationHandler implements C2OperationHandler {
             .map(map -> map.get(LOCATION))
             .orElse(EMPTY);
 
-        FlowUpdateInfo flowUpdateInfo = new FlowUpdateInfo(updateLocation, opIdentifier);
-        if (currentFlowUpdateInfo == null || !currentFlowUpdateInfo.getFlowId().equals(flowUpdateInfo.getFlowId())) {
+        FlowUpdateInfo flowUpdateInfo = new FlowUpdateInfo(updateLocation);
+        if (flowUpdateInfoHolder.getFlowUpdateInfo() == null || !flowUpdateInfoHolder.getFlowUpdateInfo().getFlowId().equals(flowUpdateInfo.getFlowId())) {
             logger.info("Will perform flow update from {} for operation #{}. Previous flow id was {}, replacing with new id {}", updateLocation, opIdentifier,
-                currentFlowUpdateInfo == null ? "not set" : currentFlowUpdateInfo.getFlowId(), flowUpdateInfo.getFlowId());
+                flowUpdateInfoHolder.getFlowUpdateInfo() == null ? "not set" : flowUpdateInfoHolder.getFlowUpdateInfo().getFlowId(), flowUpdateInfo.getFlowId());
         } else {
             logger.info("Flow is current, no update is necessary...");
         }
 
-        currentFlowUpdateInfo = flowUpdateInfo;
+        flowUpdateInfoHolder.setFlowUpdateInfo(flowUpdateInfo);
         ByteBuffer updateContent = client.retrieveUpdateContent(flowUpdateInfo);
         if (updateContent != null) {
             if (updateFlow.apply(updateContent)) {
@@ -96,9 +97,5 @@ public class UpdateConfigurationOperationHandler implements C2OperationHandler {
         }
 
         return operationAck;
-    }
-
-    public FlowUpdateInfo getCurrentFlowUpdateInfo() {
-        return currentFlowUpdateInfo;
     }
 }
