@@ -27,7 +27,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -149,20 +148,6 @@ public class MiNiFiConfigurationChangeListener implements ConfigurationChangeLis
         return "MiNiFiConfigurationChangeListener";
     }
 
-    private void saveFile(InputStream configInputStream, File configFile) throws IOException {
-        try {
-            try (FileOutputStream configFileOutputStream = new FileOutputStream(configFile)) {
-                byte[] copyArray = new byte[1024];
-                int available;
-                while ((available = configInputStream.read(copyArray)) > 0) {
-                    configFileOutputStream.write(copyArray, 0, available);
-                }
-            }
-        } catch (IOException ioe) {
-            throw new IOException("Unable to save updated configuration to the configured config file location", ioe);
-        }
-    }
-
     private void restartInstance() throws IOException {
         try {
             runner.reload();
@@ -183,19 +168,19 @@ public class MiNiFiConfigurationChangeListener implements ConfigurationChangeLis
             configSchemaNew.setNifiPropertiesOverrides(configSchemaOld.getNifiPropertiesOverrides());
 
             if (!overrideCoreProperties(bootstrapProperties)) {
-                logger.info("Preserving previous core properties...");
+                logger.debug("Preserving previous core properties...");
                 configSchemaNew.setCoreProperties(configSchemaOld.getCoreProperties());
             }
 
             if (!overrideSecurityProperties(bootstrapProperties)) {
-                logger.info("Preserving previous security properties...");
+                logger.debug("Preserving previous security properties...");
                 configSchemaNew.setSecurityProperties(configSchemaOld.getSecurityProperties());
             }
 
-            logger.info("Persisting changes to {}", configFile.getAbsolutePath());
+            logger.debug("Persisting changes to {}", configFile.getAbsolutePath());
             SchemaLoader.toYaml(configSchemaNew, new FileWriter(configFile));
         } catch (Exception e) {
-            logger.info("Loading the old and the new schema for merging was not successful");
+            logger.error("Loading the old and the new schema for merging was not successful");
         }
     }
 

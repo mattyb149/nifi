@@ -22,7 +22,7 @@ When C2 is enabled, C2ClientService will be scheduled to send heartbeats periodi
 Using the client means that configuration changes and other operations can be triggered and controlled centrally via the C2 server making the management of clients more simple and configuring them more flexible. The client supports bidirectional TLS authentication.
 
 ### Configuration
-To use the client the parameters coming from `C2ClientConfig` needs to be properly set (this configuration class is also used for instantiating `C2HeartbeatFactory` and `C2HttpClient`)
+To use the client, the parameters coming from `C2ClientConfig` need to be properly set (this configuration class is also used for instantiating `C2HeartbeatFactory` and `C2HttpClient`)
 
 ```
     # The C2 Server endpoint where the heartbeat is sent

@@ -87,12 +87,12 @@ For Windows users, navigate to the folder where MiNiFi was installed. Navigate t
 
 This launches MiNiFi and leaves it running in the foreground. To shut down NiFi, select the window that was launched and hold the Ctrl key while pressing C.
 
-# Working with dataflows
+# Working with DataFlows
 When you are working with a MiNiFi dataflow, you should design it, add any additional configuration your environment or use case requires, and then deploy your dataflow. MiNiFi is not designed to accommodate substantial mid-dataflow configuration.
 
-## Setting up Your Dataflow
+## Setting up Your DataFlow
 
-### Manually from a NiFi dataflow
+### Manually from a NiFi Dataflow
 You can use the MiNiFi Toolkit, located in your MiNiFi installation directory, and any NiFi instance to set up the dataflow you want MiNiFi to run:
 
 1. Launch NiFi
@@ -111,7 +111,7 @@ config.sh transform input_file output_file
 **Result:** Once you have your _config.yml_ file in the `minifi/conf` directory, launch that instance of MiNiFi and your dataflow begins automatically.
 
 ### Utilizing a C2 Server via the c2 protocol
-If you have a [C2 server](../../../../minifi-c2/README.md) running you can expose the whole config.yml for the agent to download. As the agent is heartbeating via the C2 protocol changes in flow version will trigger automatic config updates.
+If you have a [C2 server](../../../../minifi-c2/README.md) running, you can expose the whole _config.yml_ for the agent to download. As the agent is heartbeating via the C2 protocol, changes in flow version will trigger automatic config updates.
 
 1. Launch C2 server
 2. Configure MiNiFi for C2 capability
@@ -126,21 +126,21 @@ c2.agent.heartbeat.period=5000
 #(Optional) c2.agent.identifier=123-456-789
 c2.agent.class=agentClassName
 ```
-3. Configure MiNiFi to recognise config.yml changes
+3. Configure MiNiFi to recognize _config.yml_ changes
 ```
 nifi.minifi.notifier.ingestors=org.apache.nifi.minifi.bootstrap.configuration.ingestors.FileChangeIngestor
 nifi.minifi.notifier.ingestors.file.config.path=./conf/config-new.yml
 nifi.minifi.notifier.ingestors.file.polling.period.seconds=5
 ```
 4. Start MiNiFi
-5. When a new flow is available on the C2 server MiNiFi will download it via C2 and restart itself to pick up the changes
+5. When a new flow is available on the C2 server, MiNiFi will download it via C2 and restart itself to pick up the changes
 
-**Note:** Flow definitions are class based. Each class has one flow defined for it. So all the agents belonging to the same class will get the flow at update.
+**Note:** Flow definitions are class based. Each class has one flow defined for it. As a result, all the agents belonging to the same class will get the flow at update.
 
 ## Loading a New Dataflow
 
 ### Manually
-You can load a new dataflow for a MiNiFi instance to run:
+To load a new dataflow for a MiNiFi instance to run:
 
 1. Create a new _config.yml_ file with the new dataflow.
 2. Replace the existing _config.yml_ in `minifi/conf` with the new file.
@@ -148,10 +148,10 @@ You can load a new dataflow for a MiNiFi instance to run:
 
 ### Utilizing C2 protocol
 1. Change the flow definition on the C2 Server
-2. When a new flow is available on the C2 server MiNiFi will download it via C2 and restart itself to pick up the changes
+2. When a new flow is available on the C2 server, MiNiFi will download it via C2 and restart itself to pick up the changes
 
 ## Using Processors Not Packaged with MiNiFi
-MiNiFi is able to use following processors out of the box:
+MiNiFi is able to use the following processors out of the box:
 * UpdateAttribute
 * AttributesToJSON
 * Base64EncodeContent
