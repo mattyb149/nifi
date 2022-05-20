@@ -15,9 +15,9 @@
 ## Apache NiFi MiNiFi Command and Control (C2) Client
 The c2-client-bundle provides implementation for the client aspect of the [C2 Protocol](https://cwiki.apache.org/confluence/display/MINIFI/C2+Design). The essence of the implementation is the heartbeat construction and the communication with the [C2 server](../../../../minifi-c2/README.md) via the C2HttpClient.
 
-Relying on the [C2 Protocol API](../c2-protocol) functionality right now is limited to sending heartbeats and processing/acknowledging UPDATE configuration operation in the response (if any). Whem exposed the new configuration will be downloaded and passed back to the system using the C2 protocol.
+Currently, relying on the [C2 Protocol API](../c2-protocol) is limited to sending heartbeats and processing/acknowledging UPDATE configuration operation in the response (if any). When exposed the new configuration will be downloaded and passed back to the system using the C2 protocol.
 
-C2ClientService needs to be scheduled to send heartbeats periodically, so the C2 Server can notify the client about any operations that is defined by the protocol and needs to be executed on the client side.
+When C2 is enabled, C2ClientService will be scheduled to send heartbeats periodically, so the C2 Server can notify the client about any operations that is defined by the protocol and needs to be executed on the client side.
 
 Using the client means that configuration changes and other operations can be triggered and controlled centrally via the C2 server making the management of clients more simple and configuring them more flexible. The client supports bidirectional TLS authentication.
 

@@ -123,7 +123,7 @@ c2.runtime.type=minifi-java
 c2.rest.url=http://localhost:10090/c2/config/heartbeat
 c2.rest.url.ack=http://localhost:10090/c2/config/acknowledge
 c2.agent.heartbeat.period=5000
-#c2.agent.identifier=123-456-789 // Optional
+#(Optional) c2.agent.identifier=123-456-789
 c2.agent.class=agentClassName
 ```
 3. Configure MiNiFi to recognise config.yml changes
