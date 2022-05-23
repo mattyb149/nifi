@@ -101,10 +101,10 @@ public class UpdateConfigurationOperationHandler implements C2OperationHandler {
 
     private String parseFlowId(String flowUpdateUrl) {
         try {
-            final URI flowUri = new URI(flowUpdateUrl);
-            final String flowUriPath = flowUri.getPath();
-            final String[] split = flowUriPath.split("/");
-            final String flowId = split[4];
+            URI flowUri = new URI(flowUpdateUrl);
+            String flowUriPath = flowUri.getPath();
+            String[] split = flowUriPath.split("/");
+            String flowId = split[4];
             return flowId;
         } catch (Exception e) {
             throw new IllegalStateException("Could not get flow id from the provided URL");
