@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.nifi.c2.client.C2ClientConfig;
 import org.apache.nifi.c2.client.PersistentUuidGenerator;
-import org.apache.nifi.c2.client.api.FlowUpdateInfo;
 import org.apache.nifi.c2.client.service.model.RuntimeInfoWrapper;
 import org.apache.nifi.c2.protocol.api.AgentInfo;
 import org.apache.nifi.c2.protocol.api.AgentRepositories;
@@ -54,15 +53,15 @@ public class C2HeartbeatFactory {
     private static final String DEVICE_IDENTIFIER_FILENAME = "device-identifier";
 
     private final C2ClientConfig clientConfig;
-    private final FlowUpdateInfoHolder flowUpdateInfoHolder;
+    private final FlowIdHolder flowIdHolder;
 
     private String agentId;
     private String deviceId;
     private File confDirectory;
 
-    public C2HeartbeatFactory(C2ClientConfig clientConfig, FlowUpdateInfoHolder flowUpdateInfoHolder) {
+    public C2HeartbeatFactory(C2ClientConfig clientConfig, FlowIdHolder flowIdHolder) {
         this.clientConfig = clientConfig;
-        this.flowUpdateInfoHolder = flowUpdateInfoHolder;
+        this.flowIdHolder = flowIdHolder;
     }
 
     public C2Heartbeat create(RuntimeInfoWrapper runtimeInfoWrapper) {
@@ -83,7 +82,7 @@ public class C2HeartbeatFactory {
     private FlowInfo getFlowInfo(Map<String, FlowQueueStatus> queueStatus) {
         FlowInfo flowInfo = new FlowInfo();
         flowInfo.setQueues(queueStatus);
-        Optional.ofNullable(flowUpdateInfoHolder.getFlowUpdateInfo()).map(FlowUpdateInfo::getFlowId).ifPresent(flowInfo::setFlowId);
+        Optional.ofNullable(flowIdHolder.getFlowId()).ifPresent(flowInfo::setFlowId);
         return flowInfo;
     }
 

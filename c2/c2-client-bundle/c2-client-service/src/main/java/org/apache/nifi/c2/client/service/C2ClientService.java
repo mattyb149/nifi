@@ -40,10 +40,10 @@ public class C2ClientService {
     private final C2OperationService operationService;
     private final UpdateConfigurationOperationHandler updateConfigurationOperationHandler;
 
-    public C2ClientService(C2Client client, C2HeartbeatFactory c2HeartbeatFactory, FlowUpdateInfoHolder flowUpdateInfoHolder, Function<ByteBuffer, Boolean> updateFlow) {
+    public C2ClientService(C2Client client, C2HeartbeatFactory c2HeartbeatFactory, FlowIdHolder flowIdHolder, Function<ByteBuffer, Boolean> updateFlow) {
         this.client = client;
         this.c2HeartbeatFactory = c2HeartbeatFactory;
-        this.updateConfigurationOperationHandler = new UpdateConfigurationOperationHandler(client, flowUpdateInfoHolder, updateFlow);
+        this.updateConfigurationOperationHandler = new UpdateConfigurationOperationHandler(client, flowIdHolder, updateFlow);
         this.operationService = new C2OperationService(Arrays.asList(updateConfigurationOperationHandler));
     }
 
