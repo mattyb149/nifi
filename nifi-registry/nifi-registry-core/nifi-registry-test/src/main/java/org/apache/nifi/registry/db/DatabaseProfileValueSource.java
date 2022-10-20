@@ -31,6 +31,7 @@ public class DatabaseProfileValueSource implements ProfileValueSource {
     private static final String MYSQL = "mysql";
     private static final String MARIADB = "mariadb";
     private static final String POSTGRES = "postgres";
+    private static final String ORACLE = "oracle";
     private static final String H2 = "h2";
 
     private String currentDatabase;
@@ -46,6 +47,8 @@ public class DatabaseProfileValueSource implements ProfileValueSource {
             currentDatabase = MARIADB;
         } else if (activeProfiles.contains(POSTGRES)) {
             currentDatabase = POSTGRES;
+        } else if (activeProfiles.contains(ORACLE)) {
+            currentDatabase = ORACLE;
         }
     }
 

@@ -223,6 +223,11 @@
                 <artifactId>sshd-sftp</artifactId>
                 <version>${org.apache.sshd.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>oracle-xe</artifactId>
+                <version>${testcontainers.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

@@ -20,6 +20,7 @@ import org.flywaydb.core.api.FlywayException;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.flywaydb.core.internal.database.DatabaseType;
 import org.flywaydb.core.internal.database.DatabaseTypeRegister;
+import org.flywaydb.core.internal.database.oracle.OracleDatabaseType;
 import org.flywaydb.core.internal.database.postgresql.PostgreSQLDatabaseType;
 import org.flywaydb.core.internal.jdbc.JdbcUtils;
 import org.flywaydb.database.mysql.MySQLDatabaseType;
@@ -49,6 +50,8 @@ public class CustomFlywayConfiguration implements FlywayConfigurationCustomizer 
     private static final String LOCATION_MYSQL = "classpath:db/migration/mysql";
     private static final String[] LOCATIONS_MYSQL = {LOCATION_COMMON, LOCATION_MYSQL};
 
+    private static final String LOCATION_ORACLE = "classpath:db/migration/oracle";
+    private static final String[] LOCATIONS_ORACLE = {LOCATION_COMMON, LOCATION_ORACLE};
     private static final String LOCATION_POSTGRES = "classpath:db/migration/postgres";
     private static final String[] LOCATIONS_POSTGRES = {LOCATION_COMMON, LOCATION_POSTGRES};
 
@@ -65,6 +68,9 @@ public class CustomFlywayConfiguration implements FlywayConfigurationCustomizer 
         } else if (databaseType instanceof PostgreSQLDatabaseType) {
             LOGGER.info("Setting migration locations to {}", Arrays.asList(LOCATIONS_POSTGRES));
             configuration.locations(LOCATIONS_POSTGRES);
+        } else if (databaseType instanceof OracleDatabaseType) {
+            LOGGER.info("Setting migration locations to {}", Arrays.asList(LOCATIONS_ORACLE));
+            configuration.locations(LOCATIONS_ORACLE);
         } else {
             LOGGER.info("Setting migration locations to {}", Arrays.asList(LOCATIONS_DEFAULT));
             configuration.locations(LOCATIONS_DEFAULT);
