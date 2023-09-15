@@ -22,6 +22,7 @@ import org.apache.nifi.graph.GraphClientService;
 import org.apache.nifi.graph.GraphQueryResultCallback;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MockCypherClientService extends AbstractControllerService implements GraphClientService {
@@ -52,5 +53,13 @@ public class MockCypherClientService extends AbstractControllerService implement
     @Override
     public String getTransitUrl() {
         return "mock://localhost:12345/fake_database";
+    }
+
+    @Override
+    public String buildQueryFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters) {
+        // Build query from event list
+        StringBuilder queryBuilder = new StringBuilder();
+
+        return queryBuilder.toString();
     }
 }

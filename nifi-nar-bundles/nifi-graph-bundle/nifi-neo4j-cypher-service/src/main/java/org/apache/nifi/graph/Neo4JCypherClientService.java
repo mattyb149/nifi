@@ -297,4 +297,22 @@ public class Neo4JCypherClientService extends AbstractControllerService implemen
     public String getTransitUrl() {
         return connectionUrl;
     }
+
+    @Override
+    public String buildQueryFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters) {
+        // Build query from event list
+        StringBuilder queryBuilder = new StringBuilder();
+        for (Map<String,Object> eventNode : eventList) {
+            queryBuilder.append("MERGE (p:NiFiProvenanceEvent {");
+            List<String> propertyDefinitions = new ArrayList<>(eventNode.entrySet().size());
+            for (Map.Entry<String,Object> properties : eventNode.entrySet()) {
+                propertyDefinitions.add(properties.getKey() + ": \"" + properties.getValue() + "\"");
+            }
+            queryBuilder.append(String.join(",", propertyDefinitions));
+            queryBuilder.append("})\n");
+        }
+
+
+        return queryBuilder.toString();
+    }
 }

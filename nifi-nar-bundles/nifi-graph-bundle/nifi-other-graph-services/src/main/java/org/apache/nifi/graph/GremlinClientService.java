@@ -29,6 +29,7 @@ import org.apache.tinkerpop.gremlin.driver.Result;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 @CapabilityDescription("A client service that connects to a graph database that can accept queries in the Tinkerpop Gremlin DSL.")
@@ -103,5 +104,13 @@ public class GremlinClientService extends AbstractTinkerpopClientService impleme
     @Override
     public String getTransitUrl() {
         return transitUrl;
+    }
+
+    @Override
+    public String buildQueryFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters) {
+        // Build query from event list
+        StringBuilder queryBuilder = new StringBuilder();
+
+        return queryBuilder.toString();
     }
 }
