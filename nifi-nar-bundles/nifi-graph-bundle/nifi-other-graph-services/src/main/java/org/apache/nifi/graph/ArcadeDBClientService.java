@@ -97,7 +97,7 @@ public class ArcadeDBClientService extends AbstractControllerService implements 
             .description("Query language to use with ArcadeDB.")
             .required(true)
             .defaultValue("gremlin")
-            .allowableValues("sql", "sqlscript", "graphql", "cypher", "gremlin", "mongo")
+            .allowableValues("sql", "cypher", "gremlin")
             .build();
 
     private static final String NOT_SUPPORTED = "NOT_SUPPORTED";
