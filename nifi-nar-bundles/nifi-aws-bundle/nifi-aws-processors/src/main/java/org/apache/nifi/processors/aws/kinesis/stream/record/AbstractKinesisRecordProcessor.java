@@ -124,7 +124,7 @@ public abstract class AbstractKinesisRecordProcessor implements IRecordProcessor
 
                 startProcessingRecords();
                 final int recordsTransformed = processRecordsWithRetries(records, flowFiles, session, stopWatch);
-                transferTo(ConsumeKinesisStream.REL_SUCCESS, session, records.size(), recordsTransformed, flowFiles);
+                transferTo(ConsumeKinesisStream.REL_SUCCESS, session, records.size(), recordsTransformed, flowFiles, stopWatch);
 
                 session.commitAsync(() -> {
                     processingRecords = false;
@@ -201,12 +201,12 @@ public abstract class AbstractKinesisRecordProcessor implements IRecordProcessor
                                 final ProcessSession session, final StopWatch stopWatch);
 
     void reportProvenance(final ProcessSession session, final FlowFile flowFile, final String partitionKey,
-                 final String sequenceNumber, final StopWatch stopWatch) {
+                 final String sequenceNumber, final StopWatch stopWatch, final Relationship relationship) {
         final String transitUri = StringUtils.isNotBlank(partitionKey) && StringUtils.isNotBlank(sequenceNumber)
                 ? String.format("%s/%s/%s#%s", transitUriPrefix, kinesisShardId, partitionKey, sequenceNumber)
                 : String.format("%s/%s", transitUriPrefix, kinesisShardId);
 
-        session.getProvenanceReporter().receive(flowFile, transitUri, stopWatch.getElapsed(TimeUnit.MILLISECONDS));
+        session.getProvenanceReporter().receive(flowFile, transitUri, stopWatch.getElapsed(TimeUnit.MILLISECONDS), relationship);
     }
 
     Map<String, String> getDefaultAttributes(final String sequenceNumber, final String partitionKey, final Date approximateArrivalTimestamp) {
@@ -222,10 +222,11 @@ public abstract class AbstractKinesisRecordProcessor implements IRecordProcessor
     }
 
     void transferTo(final Relationship relationship, final ProcessSession session, final int recordsProcessed,
-                    final int recordsTransformed, final List<FlowFile> flowFiles) {
+                    final int recordsTransformed, final List<FlowFile> flowFiles, StopWatch stopWatch) {
         session.adjustCounter("Records Processed", recordsProcessed, false);
         if (!flowFiles.isEmpty()) {
             session.adjustCounter("Records Transformed", recordsTransformed, false);
+            reportProvenance(session, flowFiles.get(0), null, null, stopWatch, relationship);
             session.transfer(flowFiles, relationship);
         }
     }

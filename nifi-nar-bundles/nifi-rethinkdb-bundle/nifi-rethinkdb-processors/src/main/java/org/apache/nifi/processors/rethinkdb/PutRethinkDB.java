@@ -174,18 +174,19 @@ public class PutRethinkDB extends AbstractRethinkDBProcessor {
 
             HashMap<String,Object> result = runInsert(insert);
             final long endTimeMillis = System.currentTimeMillis();
-            getLogger().debug("Json documents {} inserted Result: {}", new Object[] {documents, result});
+            getLogger().debug("Json documents {} inserted Result: {}", documents, result);
             flowFile = populateAttributes(session, flowFile, result);
 
             if ( (Long)result.get(RESULT_ERROR_KEY) != 0 ) {
                 getLogger().error("There were errors while inserting data documents {} result {}",
-                   new Object [] {documents, result});
+                        documents, result);
                 session.transfer(flowFile, REL_FAILURE);
             } else {
                 session.transfer(flowFile, REL_SUCCESS);
                 session.getProvenanceReporter().send(flowFile,
-                    new StringBuilder("rethinkdb://").append(databaseName).append("/").append(tableName).toString(),
-                    (endTimeMillis - startTimeMillis));
+                        new StringBuilder("rethinkdb://").append(databaseName).append("/").append(tableName).toString(),
+                        (endTimeMillis - startTimeMillis),
+                        REL_SUCCESS);
             }
         } catch (Exception exception) {
             getLogger().error("Failed to insert into RethinkDB due to {}",

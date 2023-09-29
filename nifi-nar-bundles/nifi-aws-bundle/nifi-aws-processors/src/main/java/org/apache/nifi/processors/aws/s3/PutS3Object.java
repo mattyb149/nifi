@@ -880,14 +880,14 @@ public class PutS3Object extends AbstractS3Processor {
 
             final String url = s3.getResourceUrl(bucket, key);
             final long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-            session.getProvenanceReporter().send(flowFile, url, millis);
+            session.getProvenanceReporter().send(flowFile, url, millis, REL_SUCCESS);
 
-            getLogger().info("Successfully put {} to Amazon S3 in {} milliseconds", new Object[] {ff, millis});
+            getLogger().info("Successfully put {} to Amazon S3 in {} milliseconds", ff, millis);
             try {
                 removeLocalState(cacheKey);
             } catch (IOException e) {
                 getLogger().info("Error trying to delete key {} from cache: {}",
-                        new Object[]{cacheKey, e.getMessage()});
+                        cacheKey, e.getMessage());
             }
         } catch (final ProcessException | AmazonClientException pe) {
             extractExceptionDetails(pe, session, flowFile);
@@ -895,7 +895,7 @@ public class PutS3Object extends AbstractS3Processor {
                 getLogger().info(pe.getMessage());
                 session.rollback();
             } else {
-                getLogger().error("Failed to put {} to Amazon S3 due to {}", new Object[]{flowFile, pe});
+                getLogger().error("Failed to put {} to Amazon S3 due to {}", flowFile, pe);
                 flowFile = session.penalize(flowFile);
                 session.transfer(flowFile, REL_FAILURE);
             }

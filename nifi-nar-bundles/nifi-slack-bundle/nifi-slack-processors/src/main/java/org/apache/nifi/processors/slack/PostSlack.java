@@ -359,7 +359,7 @@ public class PostSlack extends AbstractProcessor {
             }
 
             session.transfer(flowFile, REL_SUCCESS);
-            session.getProvenanceReporter().send(flowFile, url);
+            session.getProvenanceReporter().send(flowFile, url, REL_SUCCESS);
 
         } catch (IOException | PostSlackException e) {
             getLogger().error("Failed to send message to Slack.", e);

@@ -171,10 +171,10 @@ public class PutSQS extends AbstractSQSProcessor {
             return;
         }
 
-        getLogger().info("Successfully published message to Amazon SQS for {}", new Object[]{flowFile});
+        getLogger().info("Successfully published message to Amazon SQS for {}", flowFile);
         session.transfer(flowFile, REL_SUCCESS);
         final long transmissionMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-        session.getProvenanceReporter().send(flowFile, queueUrl, transmissionMillis);
+        session.getProvenanceReporter().send(flowFile, queueUrl, transmissionMillis, REL_SUCCESS);
     }
 
 }

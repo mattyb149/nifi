@@ -416,7 +416,7 @@ public class GetTwitter extends AbstractProcessor {
         flowFile = session.putAllAttributes(flowFile, attributes);
 
         session.transfer(flowFile, REL_SUCCESS);
-        session.getProvenanceReporter().receive(flowFile, Constants.STREAM_HOST + client.getEndpoint().getURI());
+        session.getProvenanceReporter().receive(flowFile, Constants.STREAM_HOST + client.getEndpoint().getURI(), REL_SUCCESS);
     }
 
     private static class FollowingValidator implements Validator {

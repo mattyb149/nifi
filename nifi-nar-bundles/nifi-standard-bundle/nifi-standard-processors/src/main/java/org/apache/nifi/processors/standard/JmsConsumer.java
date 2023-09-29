@@ -206,10 +206,10 @@ public abstract class JmsConsumer extends AbstractProcessor {
                 flowFile = session.putAllAttributes(flowFile, JmsFactory.createAttributeMap(message));
             }
 
-            session.getProvenanceReporter().receive(flowFile, context.getProperty(URL).getValue());
+            session.getProvenanceReporter().receive(flowFile, context.getProperty(URL).getValue(), REL_SUCCESS);
             session.transfer(flowFile, REL_SUCCESS);
             logger.info("Created {} from {} messages received from JMS Server and transferred to 'success'",
-                    new Object[]{flowFile, msgsThisFlowFile.get()});
+                    flowFile, msgsThisFlowFile.get());
 
             return new JmsProcessingSummary(flowFile.getSize(), message, flowFile);
 

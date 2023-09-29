@@ -187,7 +187,7 @@ public class PutSNS extends AbstractSNSProcessor {
         try {
             client.publish(requestBuilder.build());
             session.transfer(flowFile, REL_SUCCESS);
-            session.getProvenanceReporter().send(flowFile, arn);
+            session.getProvenanceReporter().send(flowFile, arn, REL_SUCCESS);
             getLogger().info("Publishing completed for {}", flowFile);
         } catch (final Exception e) {
             getLogger().error("Publishing failed for {}", flowFile, e);
@@ -195,5 +195,4 @@ public class PutSNS extends AbstractSNSProcessor {
             session.transfer(flowFile, REL_FAILURE);
         }
     }
-
 }

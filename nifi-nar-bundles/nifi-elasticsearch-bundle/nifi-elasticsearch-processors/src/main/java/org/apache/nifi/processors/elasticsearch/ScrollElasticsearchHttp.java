@@ -355,17 +355,17 @@ public class ScrollElasticsearchHttp extends AbstractElasticsearchHttpProcessor 
 
             // emit provenance event
             final long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-            session.getProvenanceReporter().receive(flowFile, url.toExternalForm(), millis);
+            session.getProvenanceReporter().receive(flowFile, url.toExternalForm(), millis, REL_SUCCESS);
         } else {
             // 5xx -> RETRY, but a server error might last a while, so yield
             if (statusCode / 100 == 5) {
 
                 logger.warn("Elasticsearch returned code {} with message {}, removing the flow file. This is likely a server problem, yielding...",
-                        new Object[]{statusCode, getResponse.message()});
+                        statusCode, getResponse.message());
                 session.remove(flowFile);
                 context.yield();
             }  else {
-                logger.warn("Elasticsearch returned code {} with message {}", new Object[]{statusCode, getResponse.message()});
+                logger.warn("Elasticsearch returned code {} with message {}", statusCode, getResponse.message());
                 session.remove(flowFile);
             }
         }

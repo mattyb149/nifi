@@ -269,7 +269,7 @@ public class PutMongoRecord extends AbstractMongoProcessor {
                 String url = clientService != null
                         ? clientService.getURI()
                         : context.getProperty(URI).evaluateAttributeExpressions().getValue();
-                session.getProvenanceReporter().send(flowFile, url, String.format("Written %d documents to MongoDB.", written));
+                session.getProvenanceReporter().send(flowFile, url, String.format("Written %d documents to MongoDB.", written), REL_SUCCESS);
                 session.transfer(flowFile, REL_SUCCESS);
                 getLogger().info("Written {} records into MongoDB", new Object[]{ written });
             }

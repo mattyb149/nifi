@@ -269,9 +269,9 @@ public class PutSlack extends AbstractProcessor {
             if (responseCode >= 200 && responseCode < 300) {
                 getLogger().info("Successfully posted message to Slack");
                 session.transfer(flowFile, REL_SUCCESS);
-                session.getProvenanceReporter().send(flowFile, url.toString());
+                session.getProvenanceReporter().send(flowFile, url.toString(), REL_SUCCESS);
             } else {
-                getLogger().error("Failed to post message to Slack with response code {}", new Object[]{responseCode});
+                getLogger().error("Failed to post message to Slack with response code {}", responseCode);
                 flowFile = session.penalize(flowFile);
                 session.transfer(flowFile, REL_FAILURE);
                 context.yield();

@@ -254,16 +254,11 @@ public class GenerateFlowFile extends AbstractProcessor {
         FlowFile flowFile = session.create();
             final byte[] writtenData = uniqueData ? generateData(context) : data;
             if (writtenData.length > 0) {
-                flowFile = session.write(flowFile, new OutputStreamCallback() {
-                    @Override
-                    public void process(final OutputStream out) throws IOException {
-                        out.write(writtenData);
-                    }
-                });
+                flowFile = session.write(flowFile, out -> out.write(writtenData));
             }
             flowFile = session.putAllAttributes(flowFile, generatedAttributes);
 
-            session.getProvenanceReporter().create(flowFile);
+            session.getProvenanceReporter().create(flowFile, null, SUCCESS);
             session.transfer(flowFile, SUCCESS);
         }
     }

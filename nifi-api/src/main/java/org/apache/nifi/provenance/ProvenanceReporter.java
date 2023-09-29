@@ -42,7 +42,7 @@ public interface ProvenanceReporter {
      * events to an external Enterprise-wide system that is then able to
      * correlate the SEND and RECEIVE events.
      */
-    void receive(FlowFile flowFile, String transitUri);
+    void receive(FlowFile flowFile, String transitUri, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -61,7 +61,7 @@ public interface ProvenanceReporter {
      * system uses to refer to the data; if this value is non-null and is not a
      * URI, the prefix "urn:tdo:" will be used to form a URI.
      */
-    void receive(FlowFile flowFile, String transitUri, String sourceSystemFlowFileIdentifier);
+    void receive(FlowFile flowFile, String transitUri, String sourceSystemFlowFileIdentifier, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -77,7 +77,7 @@ public interface ProvenanceReporter {
      * @param transmissionMillis the number of milliseconds taken to transfer
      * the data
      */
-    void receive(FlowFile flowFile, String transitUri, long transmissionMillis);
+    void receive(FlowFile flowFile, String transitUri, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -97,7 +97,7 @@ public interface ProvenanceReporter {
      * @param transmissionMillis the number of milliseconds taken to transfer
      * the data
      */
-    void receive(FlowFile flowFile, String transitUri, String details, long transmissionMillis);
+    void receive(FlowFile flowFile, String transitUri, String details, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -120,7 +120,7 @@ public interface ProvenanceReporter {
      * @param transmissionMillis the number of milliseconds taken to transfer
      * the data
      */
-    void receive(FlowFile flowFile, String transitUri, String sourceSystemFlowFileIdentifier, String details, long transmissionMillis);
+    void receive(FlowFile flowFile, String transitUri, String sourceSystemFlowFileIdentifier, String details, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -131,7 +131,7 @@ public interface ProvenanceReporter {
      * @param transitUri A URI that provides information about the System and
      * Protocol information over which the transfer occurred.
      */
-    void fetch(FlowFile flowFile, String transitUri);
+    void fetch(FlowFile flowFile, String transitUri, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -143,7 +143,7 @@ public interface ProvenanceReporter {
      * Protocol information over which the transfer occurred.
      * @param transmissionMillis the number of milliseconds taken to transfer the data
      */
-    void fetch(FlowFile flowFile, String transitUri, long transmissionMillis);
+    void fetch(FlowFile flowFile, String transitUri, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -157,7 +157,7 @@ public interface ProvenanceReporter {
      * @param transmissionMillis the number of milliseconds taken to transfer
      * the data
      */
-    void fetch(FlowFile flowFile, String transitUri, String details, long transmissionMillis);
+    void fetch(FlowFile flowFile, String transitUri, String details, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -172,7 +172,7 @@ public interface ProvenanceReporter {
      * events to an external Enterprise-wide system that is then able to
      * correlate the SEND and RECEIVE events.
      */
-    void send(FlowFile flowFile, String transitUri);
+    void send(FlowFile flowFile, String transitUri, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -189,7 +189,7 @@ public interface ProvenanceReporter {
      * @param details additional details related to the SEND event, such as a
      * remote system's Distinguished Name
      */
-    void send(FlowFile flowFile, String transitUri, String details);
+    void send(FlowFile flowFile, String transitUri, String details, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -206,7 +206,7 @@ public interface ProvenanceReporter {
      * @param transmissionMillis the number of milliseconds spent sending the
      * data to the remote system
      */
-    void send(FlowFile flowFile, String transitUri, long transmissionMillis);
+    void send(FlowFile flowFile, String transitUri, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -225,7 +225,7 @@ public interface ProvenanceReporter {
      * @param transmissionMillis the number of milliseconds spent sending the
      * data to the remote system
      */
-    void send(FlowFile flowFile, String transitUri, String details, long transmissionMillis);
+    void send(FlowFile flowFile, String transitUri, String details, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -245,7 +245,7 @@ public interface ProvenanceReporter {
      * ProvenanceReporter is associated is rolled back. Otherwise, the Event
      * will be recorded only on a successful session commit.
      */
-    void send(FlowFile flowFile, String transitUri, boolean force);
+    void send(FlowFile flowFile, String transitUri, boolean force, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -267,7 +267,7 @@ public interface ProvenanceReporter {
      * ProvenanceReporter is associated is rolled back. Otherwise, the Event
      * will be recorded only on a successful session commit.
      */
-    void send(FlowFile flowFile, String transitUri, String details, boolean force);
+    void send(FlowFile flowFile, String transitUri, String details, boolean force, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -289,7 +289,7 @@ public interface ProvenanceReporter {
      * ProvenanceReporter is associated is rolled back. Otherwise, the Event
      * will be recorded only on a successful session commit.
      */
-    void send(FlowFile flowFile, String transitUri, long transmissionMillis, boolean force);
+    void send(FlowFile flowFile, String transitUri, long transmissionMillis, boolean force, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#SEND SEND}
@@ -313,7 +313,7 @@ public interface ProvenanceReporter {
      * ProvenanceReporter is associated is rolled back. Otherwise, the Event
      * will be recorded only on a successful session commit.
      */
-    void send(FlowFile flowFile, String transitUri, String details, long transmissionMillis, boolean force);
+    void send(FlowFile flowFile, String transitUri, String details, long transmissionMillis, boolean force, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#REMOTE_INVOCATION}
@@ -325,7 +325,7 @@ public interface ProvenanceReporter {
      * Protocol information over which the invocation occurred. The intent of this
      * field is to identify they type and target resource or object of the invocation.
      */
-    void invokeRemoteProcess(FlowFile flowFile, String transitUri);
+    void invokeRemoteProcess(FlowFile flowFile, String transitUri, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#REMOTE_INVOCATION}
@@ -339,7 +339,21 @@ public interface ProvenanceReporter {
      * @param details additional details related to the REMOTE_INVOCATION event, such as an
      * explanation of the invoked process.
      */
-    void invokeRemoteProcess(FlowFile flowFile, String transitUri, String details);
+    void invokeRemoteProcess(FlowFile flowFile, String transitUri, String details, final Relationship relationship);
+
+    /**
+     * Emits a Provenance Event of type {@link ProvenanceEventType#REMOTE_INVOCATION}
+     * that indicates a remote invocation is requested to an external endpoint using
+     * the given FlowFile. The external endpoint may exist in a remote or a local system,
+     * but is external to NiFi.
+     * @param flowFile the FlowFile that was used to make the remote invocation
+     * @param transitUri A URI that provides information about the System and
+     * Protocol information over which the invocation occurred. The intent of this
+     * field is to identify they type and target resource or object of the invocation.
+     * @param details additional details related to the REMOTE_INVOCATION event, such as an
+     * explanation of the invoked process.
+     */
+    void invokeRemoteProcess(FlowFile flowFile, String transitUri, String details, long transmissionMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -354,7 +368,7 @@ public interface ProvenanceReporter {
      * @param alternateIdentifier the identifier that the alternate system uses
      * when referring to the data that is encompassed by this FlowFile
      */
-    void associate(FlowFile flowFile, String alternateIdentifierNamespace, String alternateIdentifier);
+    void associate(FlowFile flowFile, String alternateIdentifierNamespace, String alternateIdentifier, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#FORK FORK}
@@ -366,6 +380,7 @@ public interface ProvenanceReporter {
      * @param parent the FlowFile from which the children are derived
      * @param children the FlowFiles that are derived from the parent.
      */
+    // TODO add relationship if possible
     void fork(FlowFile parent, Collection<FlowFile> children);
 
     /**
@@ -377,9 +392,21 @@ public interface ProvenanceReporter {
      *
      * @param parent the FlowFile from which the children are derived
      * @param children the FlowFiles that are derived from the parent.
+     */
+    void fork(FlowFile parent, Collection<FlowFile> children, final Relationship relationship);
+
+    /**
+     * Emits a Provenance Event of type {@link ProvenanceEventType#FORK FORK}
+     * that establishes that the given parent was split into multiple child
+     * FlowFiles. In general, this method does not need to be called by
+     * Processors, as the ProcessSession will handle this automatically for you
+     * when calling {@link ProcessSession#create(FlowFile)}.
+     *
+     * @param parent the FlowFile from which the children are derived
+     * @param children the FlowFiles that are derived from the parent.
      * @param details any details pertinent to the fork
      */
-    void fork(FlowFile parent, Collection<FlowFile> children, String details);
+    void fork(FlowFile parent, Collection<FlowFile> children, String details, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#FORK FORK}
@@ -393,7 +420,7 @@ public interface ProvenanceReporter {
      * @param forkDuration the number of milliseconds that it took to perform
      * the task
      */
-    void fork(FlowFile parent, Collection<FlowFile> children, long forkDuration);
+    void fork(FlowFile parent, Collection<FlowFile> children, long forkDuration, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#FORK FORK}
@@ -408,7 +435,7 @@ public interface ProvenanceReporter {
      * @param forkDuration the number of milliseconds that it took to perform
      * the task
      */
-    void fork(FlowFile parent, Collection<FlowFile> children, String details, long forkDuration);
+    void fork(FlowFile parent, Collection<FlowFile> children, String details, long forkDuration, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#JOIN JOIN}
@@ -421,6 +448,7 @@ public interface ProvenanceReporter {
      * child
      * @param child the FlowFile that is being created by joining the parents
      */
+    // TODO include relationship if possible
     void join(Collection<FlowFile> parents, FlowFile child);
 
     /**
@@ -433,9 +461,22 @@ public interface ProvenanceReporter {
      * @param parents the FlowFiles that are being joined together to create the
      * child
      * @param child the FlowFile that is being created by joining the parents
+     */
+    void join(Collection<FlowFile> parents, FlowFile child, final Relationship relationship);
+
+    /**
+     * Emits a Provenance Event of type {@link ProvenanceEventType#JOIN JOIN}
+     * that establishes that the given parents were joined together to create a
+     * new child FlowFile. In general, this method does not need to be called by
+     * Processors, as the ProcessSession will handle this automatically for you
+     * when calling {@link ProcessSession#create(FlowFile)}.
+     *
+     * @param parents the FlowFiles that are being joined together to create the
+     * child
+     * @param child the FlowFile that is being created by joining the parents
      * @param details any details pertinent to the event
      */
-    void join(Collection<FlowFile> parents, FlowFile child, String details);
+    void join(Collection<FlowFile> parents, FlowFile child, String details, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#JOIN JOIN}
@@ -450,7 +491,7 @@ public interface ProvenanceReporter {
      * @param joinDuration the number of milliseconds that it took to join the
      * FlowFiles
      */
-    void join(Collection<FlowFile> parents, FlowFile child, long joinDuration);
+    void join(Collection<FlowFile> parents, FlowFile child, long joinDuration, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#JOIN JOIN}
@@ -466,7 +507,7 @@ public interface ProvenanceReporter {
      * @param joinDuration the number of milliseconds that it took to join the
      * FlowFiles
      */
-    void join(Collection<FlowFile> parents, FlowFile child, String details, long joinDuration);
+    void join(Collection<FlowFile> parents, FlowFile child, String details, long joinDuration, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#CLONE CLONE}
@@ -488,8 +529,9 @@ public interface ProvenanceReporter {
      * the contents of a FlowFile are modified.
      *
      * @param flowFile the FlowFile whose content is being modified
+     * @param relationship the Relationship to which the flowFile was transferred
      */
-    void modifyContent(FlowFile flowFile);
+    void modifyContent(FlowFile flowFile, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -503,8 +545,9 @@ public interface ProvenanceReporter {
      * modified. Details should not be specified if they can be inferred by
      * other information in the event, such as the name of the Processor, as
      * specifying this information will add undue overhead
+     * @param relationship the Relationship to which the flowFile was transferred
      */
-    void modifyContent(FlowFile flowFile, String details);
+    void modifyContent(FlowFile flowFile, String details, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -516,8 +559,9 @@ public interface ProvenanceReporter {
      * @param flowFile the FlowFile whose content is being modified
      * @param processingMillis the number of milliseconds spent processing the
      * FlowFile
+     * @param relationship the Relationship to which the flowFile was transferred
      */
-    void modifyContent(FlowFile flowFile, long processingMillis);
+    void modifyContent(FlowFile flowFile, long processingMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -533,8 +577,9 @@ public interface ProvenanceReporter {
      * specifying this information will add undue overhead
      * @param processingMillis the number of milliseconds spent processing the
      * FlowFile
+     * @param relationship the Relationship to which the flowFile was transferred
      */
-    void modifyContent(FlowFile flowFile, String details, long processingMillis);
+    void modifyContent(FlowFile flowFile, String details, long processingMillis, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -551,8 +596,9 @@ public interface ProvenanceReporter {
      * significant amount of overhead for storage and processing.
      *
      * @param flowFile the FlowFile whose attributes were modified
+     * @param relationship the Relationship to which the flowFile was transferred
      */
-    void modifyAttributes(FlowFile flowFile);
+    void modifyAttributes(FlowFile flowFile, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -571,8 +617,9 @@ public interface ProvenanceReporter {
      * @param flowFile the FlowFile whose attributes were modified
      * @param details any details should be provided about the attribute
      * modification
+     * @param relationship the Relationship to which the flowFile was transferred
      */
-    void modifyAttributes(FlowFile flowFile, String details);
+    void modifyAttributes(FlowFile flowFile, String details, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type {@link ProvenanceEventType#ROUTE ROUTE}
@@ -662,7 +709,7 @@ public interface ProvenanceReporter {
      *
      * @param flowFile the FlowFile that was created
      */
-    void create(FlowFile flowFile);
+    void create(FlowFile flowFile, final Relationship relationship);
 
     /**
      * Emits a Provenance Event of type
@@ -673,8 +720,9 @@ public interface ProvenanceReporter {
      *
      * @param flowFile the FlowFile that was created
      * @param details any relevant details about the CREATE event
+     * @param relationship the relationship the created FlowFile was transferred to
      */
-    void create(FlowFile flowFile, String details);
+    void create(FlowFile flowFile, String details, Relationship relationship);
 
     /**
      * @return the number of FlowFiles for which there was a RECEIVE event

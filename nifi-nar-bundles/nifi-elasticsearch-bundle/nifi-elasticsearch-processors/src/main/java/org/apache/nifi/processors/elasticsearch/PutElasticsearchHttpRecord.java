@@ -549,7 +549,7 @@ public class PutElasticsearchHttpRecord extends AbstractElasticsearchHttpProcess
                         // Everything succeeded, route FF and end
                         flowFile = session.putAttribute(flowFile, "record.count", Integer.toString(recordCount));
                         session.transfer(flowFile, REL_SUCCESS);
-                        session.getProvenanceReporter().send(flowFile, url.toString());
+                        session.getProvenanceReporter().send(flowFile, url.toString(), REL_SUCCESS);
                         return;
                     }
                 }

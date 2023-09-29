@@ -18,12 +18,13 @@ package org.apache.nifi.atlas.reporting;
 
 import org.apache.nifi.provenance.ProvenanceEventRecord;
 import org.apache.nifi.provenance.ProvenanceEventType;
+import org.apache.nifi.provenance.UpdateableProvenanceEventRecord;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SimpleProvenanceRecord implements ProvenanceEventRecord {
+public class SimpleProvenanceRecord implements UpdateableProvenanceEventRecord {
     private long eventId;
     private List<Long> previousEventIds;
     private String componentId;
@@ -53,6 +54,7 @@ public class SimpleProvenanceRecord implements ProvenanceEventRecord {
         this.eventId = eventId;
     }
 
+    @Override
     public void setPreviousEventIds(List<Long> previousEventIds) {
         this.previousEventIds = previousEventIds;
     }

@@ -74,7 +74,7 @@ import org.apache.tika.mime.MimeTypeException;
  * </p>
  *
  * <p>
- * MIME Type detection is performed by Apache Tika; more information about detection is available at http://tika.apache.org.
+ * MIME Type detection is performed by Apache Tika; more information about detection is available at <a href="https://tika.apache.org">https://tika.apache.org</a>.
  *
  * <ul>
  * <li>application/flowfile-v3</li>
@@ -252,7 +252,7 @@ public class IdentifyMimeType extends AbstractProcessor {
             logger.info("Identified {} as having MIME Type {}", new Object[]{flowFile, mimeType});
         }
 
-        session.getProvenanceReporter().modifyAttributes(flowFile);
+        session.getProvenanceReporter().modifyAttributes(flowFile, REL_SUCCESS);
         session.transfer(flowFile, REL_SUCCESS);
     }
 

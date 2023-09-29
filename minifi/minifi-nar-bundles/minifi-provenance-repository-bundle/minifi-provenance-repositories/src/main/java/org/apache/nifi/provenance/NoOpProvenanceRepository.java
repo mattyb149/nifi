@@ -25,7 +25,6 @@ import org.apache.nifi.provenance.search.QuerySubmission;
 import org.apache.nifi.provenance.search.SearchableField;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -42,8 +41,8 @@ public class NoOpProvenanceRepository implements ProvenanceRepository {
 
   @Override
   public void initialize(EventReporter eventReporter, Authorizer authorizer,
-      ProvenanceAuthorizableFactory factory, IdentifierLookup identifierLookup)
-      throws IOException {
+                         ProvenanceAuthorizableFactory factory, IdentifierLookup identifierLookup)
+          throws IOException {
 
   }
 
@@ -69,13 +68,13 @@ public class NoOpProvenanceRepository implements ProvenanceRepository {
 
   @Override
   public List<ProvenanceEventRecord> getEvents(long firstRecordId, int maxRecords)
-      throws IOException {
+          throws IOException {
     return emptyList();
   }
 
   @Override
   public List<ProvenanceEventRecord> getEvents(long firstRecordId,
-      int maxRecords, NiFiUser niFiUser) throws IOException {
+                                               int maxRecords, NiFiUser niFiUser) throws IOException {
     return emptyList();
   }
 
@@ -156,7 +155,7 @@ public class NoOpProvenanceRepository implements ProvenanceRepository {
 
   @Override
   public AsyncLineageSubmission retrieveLineageSubmission(final String lineageIdentifier,
-      final NiFiUser user) {
+                                                          final NiFiUser user) {
     return null;
   }
 
@@ -168,15 +167,5 @@ public class NoOpProvenanceRepository implements ProvenanceRepository {
   @Override
   public AsyncLineageSubmission submitExpandChildren(final long eventId, final NiFiUser user) {
     return null;
-  }
-
-  @Override
-  public List<Long> getPreviousEventIds(String flowFileUUID) {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public void updatePreviousEventIds(ProvenanceEventRecord record, List<Long> previousIds) {
-    // Do nothing
   }
 }

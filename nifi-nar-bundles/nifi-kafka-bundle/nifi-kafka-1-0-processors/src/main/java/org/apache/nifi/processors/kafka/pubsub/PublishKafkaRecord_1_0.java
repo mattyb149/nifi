@@ -506,7 +506,7 @@ public class PublishKafkaRecord_1_0 extends AbstractProcessor implements KafkaCl
                 session.adjustCounter("Messages Sent", msgCount, true);
 
                 final String transitUri = StandardTransitUriProvider.getTransitUri(securityProtocol, bootstrapServers, topic);
-                session.getProvenanceReporter().send(success, transitUri, "Sent " + msgCount + " messages", transmissionMillis);
+                session.getProvenanceReporter().send(success, transitUri, "Sent " + msgCount + " messages", transmissionMillis, REL_SUCCESS);
                 session.transfer(success, REL_SUCCESS);
             }
         }

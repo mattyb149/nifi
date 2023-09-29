@@ -603,7 +603,7 @@ public class PutHiveStreaming extends AbstractSessionFactoryProcessor {
                 updateAttributes.put(HIVE_STREAMING_RECORD_COUNT_ATTR, Integer.toString(successfulRecordCount.get()));
                 updateAttributes.put(AbstractHiveQLProcessor.ATTR_OUTPUT_TABLES, options.getQualifiedTableName());
                 successFlowFile.set(session.putAllAttributes(successFlowFile.get(), updateAttributes));
-                session.getProvenanceReporter().send(successFlowFile.get(), options.getMetaStoreURI());
+                session.getProvenanceReporter().send(successFlowFile.get(), options.getMetaStoreURI(), REL_SUCCESS);
                 result.routeTo(successFlowFile.get(), REL_SUCCESS);
             } else {
                 session.remove(successFlowFile.get());

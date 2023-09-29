@@ -131,7 +131,7 @@ import java.util.stream.Collectors;
  * @deprecated This class is now deprecated in favor of {@link WriteAheadProvenanceRepository}.
  */
 @Deprecated
-public class PersistentProvenanceRepository extends AbstractProvenanceRepository {
+public class PersistentProvenanceRepository implements ProvenanceRepository {
 
     public static final String EVENT_CATEGORY = "Provenance Repository";
     private static final String FILE_EXTENSION = ".prov";

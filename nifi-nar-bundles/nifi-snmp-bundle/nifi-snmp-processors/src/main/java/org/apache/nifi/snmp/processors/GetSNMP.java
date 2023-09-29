@@ -184,11 +184,11 @@ public class GetSNMP extends AbstractSNMPProcessor {
             final SNMPTreeResponse response = optionalResponse.get();
             response.logErrors(getLogger());
             processSession.putAllAttributes(flowFile, response.getAttributes());
-            processSession.getProvenanceReporter().modifyAttributes(flowFile, response.getTargetAddress() + "/walk");
+            processSession.getProvenanceReporter().modifyAttributes(flowFile, response.getTargetAddress() + "/walk", response.isError() ? REL_FAILURE : REL_SUCCESS);
             processSession.transfer(flowFile, response.isError() ? REL_FAILURE : REL_SUCCESS);
         } else {
             getLogger().warn("No SNMP specific attributes found in flowfile.");
-            processSession.getProvenanceReporter().receive(flowFile, "/walk");
+            processSession.getProvenanceReporter().receive(flowFile, "/walk", REL_FAILURE);
             processSession.transfer(flowFile, REL_FAILURE);
         }
     }
@@ -198,7 +198,7 @@ public class GetSNMP extends AbstractSNMPProcessor {
         response.logErrors(getLogger());
         final FlowFile outgoingFlowFile = processSession.create();
         processSession.putAllAttributes(outgoingFlowFile, response.getAttributes());
-        processSession.getProvenanceReporter().create(outgoingFlowFile, response.getTargetAddress() + "/walk");
+        processSession.getProvenanceReporter().create(outgoingFlowFile, response.getTargetAddress() + "/walk", REL_SUCCESS);
         processSession.transfer(outgoingFlowFile, REL_SUCCESS);
     }
 
@@ -222,8 +222,9 @@ public class GetSNMP extends AbstractSNMPProcessor {
         final SNMPSingleResponse response = snmpHandler.get(oid);
         final FlowFile outgoingFlowFile = processSession.create();
         processSession.putAllAttributes(outgoingFlowFile, textualOidMap);
-        processSession.getProvenanceReporter().receive(outgoingFlowFile, response.getTargetAddress() + "/get");
-        handleResponse(context, processSession, outgoingFlowFile, response, REL_SUCCESS, REL_FAILURE, "/get");
+        final Relationship outgoingRelationship = handleResponse(context, processSession, outgoingFlowFile, response, REL_SUCCESS, REL_FAILURE, "/get");
+        processSession.getProvenanceReporter().receive(outgoingFlowFile, response.getTargetAddress() + "/get", outgoingRelationship);
+
     }
 
     private void performSnmpGetWithFlowFile(ProcessContext context, ProcessSession processSession, FlowFile flowFile, Map<String, String> textualOidMap) throws IOException {

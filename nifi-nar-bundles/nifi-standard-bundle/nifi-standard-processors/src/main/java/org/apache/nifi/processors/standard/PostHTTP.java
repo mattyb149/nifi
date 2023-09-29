@@ -781,10 +781,10 @@ public class PostHTTP extends AbstractProcessor {
             }
 
             logger.info("Successfully Posted {} to {} in {} at a rate of {}",
-                    new Object[]{flowFileDescription, url, FormatUtils.formatMinutesSeconds(uploadMillis, TimeUnit.MILLISECONDS), uploadDataRate});
+                    flowFileDescription, url, FormatUtils.formatMinutesSeconds(uploadMillis, TimeUnit.MILLISECONDS), uploadDataRate);
 
             for (final FlowFile flowFile : toSend) {
-                session.getProvenanceReporter().send(flowFile, url, "Remote DN=" + httpClientContext.getAttribute(REMOTE_DN), uploadMillis, true);
+                session.getProvenanceReporter().send(flowFile, url, "Remote DN=" + httpClientContext.getAttribute(REMOTE_DN), uploadMillis, true, REL_SUCCESS);
                 session.transfer(flowFile, REL_SUCCESS);
             }
             return;
@@ -827,7 +827,7 @@ public class PostHTTP extends AbstractProcessor {
             final String holdReason = holdResponse.getStatusLine().getReasonPhrase();
             if (holdStatusCode >= 300) {
                 logger.error("Failed to delete Hold that destination placed on {}: got response code {}:{}; routing to failure",
-                        new Object[]{flowFileDescription, holdStatusCode, holdReason});
+                        flowFileDescription, holdStatusCode, holdReason);
 
                 for (FlowFile flowFile : toSend) {
                     flowFile = session.penalize(flowFile);
@@ -837,10 +837,10 @@ public class PostHTTP extends AbstractProcessor {
             }
 
             logger.info("Successfully Posted {} to {} in {} at a rate of {}",
-                    new Object[]{flowFileDescription, url, FormatUtils.formatMinutesSeconds(uploadMillis, TimeUnit.MILLISECONDS), uploadDataRate});
+                    flowFileDescription, url, FormatUtils.formatMinutesSeconds(uploadMillis, TimeUnit.MILLISECONDS), uploadDataRate);
 
             for (final FlowFile flowFile : toSend) {
-                session.getProvenanceReporter().send(flowFile, url, "Remote DN=" + httpClientContext.getAttribute(REMOTE_DN), uploadMillis, true);
+                session.getProvenanceReporter().send(flowFile, url, "Remote DN=" + httpClientContext.getAttribute(REMOTE_DN), uploadMillis, true, REL_SUCCESS);
                 session.transfer(flowFile, REL_SUCCESS);
             }
             return;

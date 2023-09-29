@@ -381,7 +381,7 @@ public class ListDatabaseTables extends AbstractProcessor {
         public void addToListing(final Map<String, String> tableInformation, final String transitUri) {
             FlowFile flowFile = session.create();
             flowFile = session.putAllAttributes(flowFile, tableInformation);
-            session.getProvenanceReporter().receive(flowFile, transitUri);
+            session.getProvenanceReporter().receive(flowFile, transitUri, REL_SUCCESS);
             session.transfer(flowFile, REL_SUCCESS);
         }
 
@@ -459,7 +459,7 @@ public class ListDatabaseTables extends AbstractProcessor {
                 flowFile = session.putAllAttributes(flowFile, attributes);
 
                 session.transfer(flowFile, REL_SUCCESS);
-                session.getProvenanceReporter().receive(flowFile, transitUri);
+                session.getProvenanceReporter().receive(flowFile, transitUri, REL_SUCCESS);
             }
         }
 

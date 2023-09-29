@@ -504,7 +504,6 @@ public class PutHive3Streaming extends AbstractProcessor {
                     updateAttributes.put(HIVE_STREAMING_RECORD_COUNT_ATTR, Long.toString(hiveStreamingConnection.getConnectionStats().getRecordsWritten()));
                     updateAttributes.put(ATTR_OUTPUT_TABLES, options.getQualifiedTableName());
                     flowFile = session.putAllAttributes(flowFile, updateAttributes);
-                    session.getProvenanceReporter().send(flowFile, hiveStreamingConnection.getMetastoreUri());
                 } catch (TransactionError te) {
                     if (rollbackOnFailure) {
                         throw new ProcessException(te.getLocalizedMessage(), te);
@@ -520,10 +519,12 @@ public class PutHive3Streaming extends AbstractProcessor {
                                 RecordReader.class.getSimpleName(), flowFile,
                                 rrfe
                         );
+                        session.getProvenanceReporter().send(flowFile, hiveStreamingConnection.getMetastoreUri(), REL_FAILURE);
                         session.transfer(flowFile, REL_FAILURE);
                         return null;
                     }
                 }
+                session.getProvenanceReporter().send(flowFile, hiveStreamingConnection.getMetastoreUri(), REL_SUCCESS);
                 session.transfer(flowFile, REL_SUCCESS);
             } catch (InvalidTable | SerializationError | StreamingIOFailure | IOException e) {
                 if (rollbackOnFailure) {

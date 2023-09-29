@@ -187,9 +187,9 @@ public class GetSQS extends AbstractSQSProcessor {
             flowFile = session.write(flowFile, out -> out.write(message.body().getBytes(charset)));
 
             session.transfer(flowFile, REL_SUCCESS);
-            session.getProvenanceReporter().receive(flowFile, queueUrl);
+            session.getProvenanceReporter().receive(flowFile, queueUrl, REL_SUCCESS);
 
-            getLogger().info("Successfully received {} from Amazon SQS", new Object[]{flowFile});
+            getLogger().info("Successfully received {} from Amazon SQS", flowFile);
         }
 
         if (autoDelete) {

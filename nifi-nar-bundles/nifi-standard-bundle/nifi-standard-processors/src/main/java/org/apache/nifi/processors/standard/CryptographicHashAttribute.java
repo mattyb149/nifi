@@ -223,7 +223,7 @@ public class CryptographicHashAttribute extends AbstractProcessor {
             String value = hashValue(algorithm, entry.getValue(), charset);
             session.putAttribute(flowFile, attributeToGeneratedNameMap.get(entry.getKey()), value);
         }
-        session.getProvenanceReporter().modifyAttributes(flowFile);
+        session.getProvenanceReporter().modifyAttributes(flowFile, REL_SUCCESS);
         session.transfer(flowFile, REL_SUCCESS);
     }
 

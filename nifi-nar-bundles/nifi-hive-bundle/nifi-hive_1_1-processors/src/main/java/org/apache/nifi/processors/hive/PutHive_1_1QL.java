@@ -263,7 +263,7 @@ public class PutHive_1_1QL extends AbstractHive_1_1QLProcessor {
             final long transmissionMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - fc.startNanos);
 
             final FlowFile updatedFlowFile = session.putAllAttributes(flowFile, toQueryTableAttributes(tableNames));
-            session.getProvenanceReporter().send(updatedFlowFile, fc.connectionUrl, transmissionMillis, true);
+            session.getProvenanceReporter().send(updatedFlowFile, fc.connectionUrl, transmissionMillis, true, REL_SUCCESS);
             result.routeTo(flowFile, REL_SUCCESS);
 
         }, onFlowFileError(context, session, result));

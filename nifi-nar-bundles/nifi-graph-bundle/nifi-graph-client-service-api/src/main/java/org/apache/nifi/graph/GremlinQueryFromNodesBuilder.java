@@ -16,12 +16,19 @@
  */
 package org.apache.nifi.graph;
 
+import org.apache.nifi.graph.exception.GraphClientMethodNotSupported;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public class GremlinQueryFromNodesBuilder {
-    public List<GraphQuery> getQueries(final List<Map<String, Object>> nodeList) {
+public class GremlinQueryFromNodesBuilder implements QueryFromNodesBuilder {
+
+    private String databaseName;
+
+    @Override
+    public List<GraphQuery> getProvenanceQueries(final List<Map<String, Object>> nodeList, final boolean includeFlowGraph) {
         final List<GraphQuery> queryList = new ArrayList<>(nodeList.size());
         for (final Map<String, Object> eventNode : nodeList) {
             StringBuilder queryBuilder = new StringBuilder();
@@ -64,5 +71,65 @@ public class GremlinQueryFromNodesBuilder {
             }
         }
         return queryList;
+    }
+
+    @Override
+    public List<GraphQuery> getFlowGraphQueries(List<Map<String, Object>> nodeList) {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<GraphQuery> convertActionsToQueries(List<Map<String, Object>> nodeList) {
+        // TODO: Convert FlowActions to Gremlin queries
+        if (nodeList == null) {
+            return Collections.emptyList();
+        }
+        final List<GraphQuery> queryList = new ArrayList<>(nodeList.size());
+        for (Map<String, Object> actionNode : nodeList) {
+            final String operation = actionNode.get("operation").toString();
+            StringBuilder queryBuilder;
+            if ("Remove".equals(operation)) {
+                // TODO move to a "history" database? If so match its nearest neighbors
+                // Remove the node from the graph, if it has been replaced
+                queryBuilder = new StringBuilder(generateUseClause(databaseName) + "DELETE FROM Processor WHERE id = '");
+                queryBuilder.append(actionNode.get("componentId"));
+                queryBuilder.append("'");
+                queryList.add(new GraphQuery(queryBuilder.toString(), GraphClientService.SQL));
+            }
+        }
+
+        // TODO return queryList when the correct Gremlin query is generated above
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<GraphQuery> generateCreateDatabaseQueries(String databaseName, boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        throw new GraphClientMethodNotSupported("Gremlin does not support creating databases");
+    }
+
+    @Override
+    public List<GraphQuery> generateCreateIndexQueries(String databaseName, boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        throw new GraphClientMethodNotSupported("Gremlin does not support creating indexes");
+    }
+
+    @Override
+    public List<GraphQuery> generateInitialVertexTypeQueries(String databaseName, boolean isCompositeDatabase) {
+        if (null != databaseName && !databaseName.isEmpty()) {
+            this.databaseName = databaseName;
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<GraphQuery> generateInitialEdgeTypeQueries(String databaseName, boolean isCompositeDatabase) {
+        if (null != databaseName && !databaseName.isEmpty()) {
+            this.databaseName = databaseName;
+        }
+        return Collections.emptyList();
+    }
+
+    public String generateUseClause(final String databaseName) {
+        // TODO change this if Gremlin can select a different database
+        return "";
     }
 }

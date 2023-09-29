@@ -334,7 +334,7 @@ public class EvaluateJsonPath extends AbstractJsonPathProcessor {
                             outputStream.write(resultRepresentation.getBytes(StandardCharsets.UTF_8));
                         }
                     });
-                    processSession.getProvenanceReporter().modifyContent(flowFile, "Replaced content with result of expression " + jsonPathExp.getPath());
+                    processSession.getProvenanceReporter().modifyContent(flowFile, "Replaced content with result of expression " + jsonPathExp.getPath(), REL_MATCH);
                 }
             }
 

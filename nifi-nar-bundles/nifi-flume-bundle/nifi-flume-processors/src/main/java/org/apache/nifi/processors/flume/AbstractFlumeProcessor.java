@@ -66,8 +66,7 @@ public abstract class AbstractFlumeProcessor extends AbstractSessionFactoryProce
             }
         });
 
-        session.getProvenanceReporter()
-            .create(flowFile);
+        session.getProvenanceReporter().create(flowFile, relationship);
         session.transfer(flowFile, relationship);
     }
 

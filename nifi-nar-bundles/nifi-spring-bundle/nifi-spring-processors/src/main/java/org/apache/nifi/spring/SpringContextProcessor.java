@@ -308,7 +308,7 @@ public class SpringContextProcessor extends AbstractProcessor {
         try {
             sent = this.exchanger.send(payload, flowFileToProcess.getAttributes(), this.sendTimeout);
             if (sent) {
-                processSession.getProvenanceReporter().send(flowFileToProcess, this.applicationContextConfigFileName);
+                processSession.getProvenanceReporter().send(flowFileToProcess, this.applicationContextConfigFileName, null);
                 processSession.remove(flowFileToProcess);
             } else {
                 processSession.transfer(processSession.penalize(flowFileToProcess), REL_FAILURE);
@@ -342,7 +342,7 @@ public class SpringContextProcessor extends AbstractProcessor {
             flowFileToProcess = processSession.putAllAttributes(flowFileToProcess,
                     this.extractFlowFileAttributesFromMessageHeaders(msgFromSpring.getHeaders()));
             processSession.transfer(flowFileToProcess, REL_SUCCESS);
-            processSession.getProvenanceReporter().receive(flowFileToProcess, this.applicationContextConfigFileName);
+            processSession.getProvenanceReporter().receive(flowFileToProcess, this.applicationContextConfigFileName, REL_SUCCESS);
         }
     }
 

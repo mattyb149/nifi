@@ -83,7 +83,7 @@ import java.util.regex.Pattern;
 @SystemResourceConsideration(resource = SystemResource.MEMORY)
 public class ReplaceText extends AbstractProcessor {
 
-    private static Pattern REPLACEMENT_NORMALIZATION_PATTERN = Pattern.compile("(\\$\\D)");
+    private static final Pattern REPLACEMENT_NORMALIZATION_PATTERN = Pattern.compile("(\\$\\D)");
 
     // Constants
     public static final String LINE_BY_LINE = "Line-by-Line";
@@ -375,8 +375,8 @@ public class ReplaceText extends AbstractProcessor {
             return;
         }
 
-        logger.info("Transferred {} to 'success'", new Object[] {flowFile});
-        session.getProvenanceReporter().modifyContent(flowFile, stopWatch.getElapsed(TimeUnit.MILLISECONDS));
+        logger.info("Transferred {} to 'success'", flowFile);
+        session.getProvenanceReporter().modifyContent(flowFile, stopWatch.getElapsed(TimeUnit.MILLISECONDS), REL_SUCCESS);
         session.transfer(flowFile, REL_SUCCESS);
     }
 

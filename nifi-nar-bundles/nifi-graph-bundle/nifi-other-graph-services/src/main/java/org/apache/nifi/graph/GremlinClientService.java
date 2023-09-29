@@ -22,11 +22,13 @@ import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.controller.ConfigurationContext;
-import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.graph.exception.GraphClientMethodNotSupported;
+import org.apache.nifi.graph.exception.GraphQueryException;
 import org.apache.tinkerpop.gremlin.driver.Client;
 import org.apache.tinkerpop.gremlin.driver.Cluster;
 import org.apache.tinkerpop.gremlin.driver.Result;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -40,6 +42,10 @@ public class GremlinClientService extends AbstractTinkerpopClientService impleme
     protected Client client;
     public static final String NOT_SUPPORTED = "NOT_SUPPORTED";
     private ConfigurationContext context;
+
+    private String databaseName; // TODO add property to specify the database name?
+
+    protected final QueryFromNodesBuilder gremlinQueryFromNodesBuilder = new GremlinQueryFromNodesBuilder();
 
     @OnEnabled
     public void onEnabled(ConfigurationContext context) {
@@ -56,7 +62,7 @@ public class GremlinClientService extends AbstractTinkerpopClientService impleme
         cluster = null;
     }
 
-    public Map<String, String> doQuery(String query, Map<String, Object> parameters, GraphQueryResultCallback handler) {
+    public Map<String, String> doQuery(String query, Map<String, Object> parameters, GraphQueryResultCallback handler) throws GraphQueryException {
         try {
             Iterator<Result> iterator = client.submit(query, parameters).iterator();
             long count = 0;
@@ -85,12 +91,13 @@ public class GremlinClientService extends AbstractTinkerpopClientService impleme
             return resultAttributes;
 
         } catch (Exception ex) {
-            throw new ProcessException(ex);
+            throw new GraphQueryException(ex);
         }
     }
 
     @Override
-    public Map<String, String> executeQuery(String query, Map<String, Object> parameters, GraphQueryResultCallback handler) {
+    public Map<String, String> executeQuery(GraphQuery graphQuery, Map<String, Object> parameters, GraphQueryResultCallback handler) throws GraphQueryException {
+        final String query = graphQuery.getQuery();
         try {
             return doQuery(query, parameters, handler);
         } catch (Exception ex) {
@@ -108,8 +115,45 @@ public class GremlinClientService extends AbstractTinkerpopClientService impleme
     }
 
     @Override
-    public List<GraphQuery> buildQueryFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters) {
-        // Build query from event list
-        return new GremlinQueryFromNodesBuilder().getQueries(eventList);
+    public List<GraphQuery> convertActionsToQueries(final List<Map<String, Object>> nodeList) {
+        return Collections.emptyList();
     }
+
+    @Override
+    public List<GraphQuery> buildFlowGraphQueriesFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters) {
+        // Build queries from event list
+        return gremlinQueryFromNodesBuilder.getFlowGraphQueries(eventList);
+    }
+
+    @Override
+    public List<GraphQuery> buildProvenanceQueriesFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters, final boolean includeFlowGraph) {
+        // Build queries from event list
+        return gremlinQueryFromNodesBuilder.getProvenanceQueries(eventList, includeFlowGraph);
+    }
+
+    @Override
+    public List<GraphQuery> generateCreateDatabaseQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return gremlinQueryFromNodesBuilder.generateCreateDatabaseQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public List<GraphQuery> generateCreateIndexQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return gremlinQueryFromNodesBuilder.generateCreateIndexQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public List<GraphQuery> generateInitialVertexTypeQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return gremlinQueryFromNodesBuilder.generateInitialVertexTypeQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public List<GraphQuery> generateInitialEdgeTypeQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return gremlinQueryFromNodesBuilder.generateInitialEdgeTypeQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public String getDatabaseName() {
+        return databaseName;
+    }
+
 }

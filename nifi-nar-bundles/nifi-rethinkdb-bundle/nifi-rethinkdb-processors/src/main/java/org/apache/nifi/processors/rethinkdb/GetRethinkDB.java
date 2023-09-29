@@ -166,7 +166,7 @@ public class GetRethinkDB extends AbstractRethinkDBProcessor {
             session.transfer(flowFile, REL_SUCCESS);
             session.getProvenanceReporter().fetch(flowFile,
                 new StringBuilder("rethinkdb://").append(databaseName).append("/").append(tableName).append("/").append(id).toString(),
-                (endTimeMillis - startTimeMillis));
+                (endTimeMillis - startTimeMillis), REL_SUCCESS);
 
         } catch (Exception exception) {
             getLogger().error("Failed to get document from RethinkDB due to error {}",

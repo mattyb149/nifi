@@ -119,7 +119,7 @@ public class PutAzureQueueStorage extends AbstractAzureQueueStorage {
 
         session.transfer(flowFile, REL_SUCCESS);
         final long transmissionMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-        session.getProvenanceReporter().send(flowFile, cloudQueue.getUri().toString(), transmissionMillis);
+        session.getProvenanceReporter().send(flowFile, cloudQueue.getUri().toString(), transmissionMillis, REL_SUCCESS);
     }
 
     @Override

@@ -22,7 +22,8 @@ import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.controller.ConfigurationContext;
-import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.graph.exception.GraphClientMethodNotSupported;
+import org.apache.nifi.graph.exception.GraphQueryException;
 import org.apache.tinkerpop.gremlin.driver.Cluster;
 import org.neo4j.driver.internal.InternalNode;
 import org.neo4j.driver.v1.Driver;
@@ -31,6 +32,7 @@ import org.neo4j.driver.v1.Session;
 import org.neo4j.driver.v1.StatementResult;
 import org.opencypher.gremlin.neo4j.driver.GremlinDatabase;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,10 @@ import java.util.Map;
 @Tags({ "cypher", "opencypher", "graph", "database", "janus" })
 public class OpenCypherClientService extends AbstractTinkerpopClientService implements GraphClientService {
     private volatile Driver gremlinDriver;
+
+    protected volatile QueryFromNodesBuilder cypherQueryFromNodesBuilder = new CypherQueryFromNodesBuilder();
+
+    private String databaseName;
 
     @OnEnabled
     public void onEnabled(ConfigurationContext context) {
@@ -69,9 +75,9 @@ public class OpenCypherClientService extends AbstractTinkerpopClientService impl
     }
 
     @Override
-    public Map<String, String> executeQuery(String query, Map<String, Object> parameters, GraphQueryResultCallback handler) {
+    public Map<String, String> executeQuery(GraphQuery graphQuery, Map<String, Object> parameters, GraphQueryResultCallback handler) throws GraphQueryException {
         try (Session session = gremlinDriver.session()) {
-            StatementResult result = session.run(query, parameters);
+            StatementResult result = session.run(graphQuery.getQuery(), parameters);
             long count = 0;
             while (result.hasNext()) {
                 Record record = result.next();
@@ -91,7 +97,7 @@ public class OpenCypherClientService extends AbstractTinkerpopClientService impl
 
             return resultAttributes;
         } catch (Exception ex) {
-            throw new ProcessException(ex);
+            throw new GraphQueryException(ex);
         }
     }
 
@@ -101,8 +107,44 @@ public class OpenCypherClientService extends AbstractTinkerpopClientService impl
     }
 
     @Override
-    public List<GraphQuery> buildQueryFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters) {
+    public List<GraphQuery> convertActionsToQueries(final List<Map<String, Object>> nodeList) {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<GraphQuery> buildFlowGraphQueriesFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters) {
         // Build queries from event list
-        return new CypherQueryFromNodesBuilder().getQueries(eventList);
+        return cypherQueryFromNodesBuilder.getFlowGraphQueries(eventList);
+    }
+
+    @Override
+    public List<GraphQuery> buildProvenanceQueriesFromNodes(List<Map<String, Object>> eventList, Map<String, Object> parameters, final boolean includeFlowGraph) {
+        // Build queries from event list
+        return cypherQueryFromNodesBuilder.getProvenanceQueries(eventList, includeFlowGraph);
+    }
+
+    @Override
+    public List<GraphQuery> generateCreateDatabaseQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return cypherQueryFromNodesBuilder.generateCreateDatabaseQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public List<GraphQuery> generateCreateIndexQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return cypherQueryFromNodesBuilder.generateCreateIndexQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public List<GraphQuery> generateInitialVertexTypeQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return cypherQueryFromNodesBuilder.generateInitialVertexTypeQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public List<GraphQuery> generateInitialEdgeTypeQueries(final String databaseName, final boolean isCompositeDatabase) throws GraphClientMethodNotSupported {
+        return cypherQueryFromNodesBuilder.generateInitialEdgeTypeQueries(databaseName, isCompositeDatabase);
+    }
+
+    @Override
+    public String getDatabaseName() {
+        return databaseName;
     }
 }

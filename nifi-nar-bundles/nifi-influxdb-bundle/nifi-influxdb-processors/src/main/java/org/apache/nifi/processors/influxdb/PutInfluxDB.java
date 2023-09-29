@@ -175,7 +175,7 @@ public class PutInfluxDB extends AbstractInfluxDBProcessor {
             session.transfer(flowFile, REL_SUCCESS);
             session.getProvenanceReporter().send(flowFile,
                     new StringBuilder("influxdb://").append(context.getProperty(INFLUX_DB_URL).evaluateAttributeExpressions().getValue()).append("/").append(database).toString(),
-                    (endTimeMillis - startTimeMillis));
+                    (endTimeMillis - startTimeMillis), REL_SUCCESS);
         } catch (InfluxDBIOException exception) {
             flowFile = session.putAttribute(flowFile, INFLUX_DB_ERROR_MESSAGE, String.valueOf(exception.getMessage()));
             if ( exception.getCause() instanceof SocketTimeoutException ) {

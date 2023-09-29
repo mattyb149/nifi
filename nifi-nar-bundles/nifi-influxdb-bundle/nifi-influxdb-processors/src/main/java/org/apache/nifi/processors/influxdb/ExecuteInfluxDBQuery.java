@@ -229,7 +229,7 @@ public class ExecuteInfluxDBQuery extends AbstractInfluxDBProcessor {
             if ( ! hasErrors(result) ) {
                 outgoingFlowFile = session.putAttribute(outgoingFlowFile, INFLUX_DB_EXECUTED_QUERY, String.valueOf(query));
                 session.getProvenanceReporter().send(outgoingFlowFile, makeProvenanceUrl(context, database),
-                        (endTimeMillis - startTimeMillis));
+                        (endTimeMillis - startTimeMillis), REL_SUCCESS);
                 session.transfer(outgoingFlowFile, REL_SUCCESS);
             } else {
                 outgoingFlowFile = populateErrorAttributes(session, outgoingFlowFile, query, queryErrors(result));

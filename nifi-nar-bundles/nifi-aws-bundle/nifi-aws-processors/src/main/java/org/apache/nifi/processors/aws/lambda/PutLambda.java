@@ -186,7 +186,7 @@ public class PutLambda extends AbstractAWSLambdaProcessor {
             } else {
                 session.transfer(flowFile, REL_SUCCESS);
                 final long totalTimeMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                session.getProvenanceReporter().send(flowFile, functionName, totalTimeMillis);
+                session.getProvenanceReporter().send(flowFile, functionName, totalTimeMillis, REL_SUCCESS);
             }
         } catch (final InvalidRequestContentException
             | InvalidParameterValueException
@@ -194,25 +194,25 @@ public class PutLambda extends AbstractAWSLambdaProcessor {
             | ResourceNotFoundException
             | UnsupportedMediaTypeException unrecoverableException) {
                 getLogger().error("Failed to invoke lambda {} with unrecoverable exception {} for flow file {}",
-                    new Object[]{functionName, unrecoverableException, flowFile});
+                        functionName, unrecoverableException, flowFile);
                 flowFile = populateExceptionAttributes(session, flowFile, unrecoverableException);
                 session.transfer(flowFile, REL_FAILURE);
         } catch (final TooManyRequestsException retryableServiceException) {
             getLogger().error("Failed to invoke lambda {} with exception {} for flow file {}, therefore penalizing flowfile",
-                new Object[]{functionName, retryableServiceException, flowFile});
+                    functionName, retryableServiceException, flowFile);
             flowFile = populateExceptionAttributes(session, flowFile, retryableServiceException);
             flowFile = session.penalize(flowFile);
             session.transfer(flowFile, REL_FAILURE);
             context.yield();
         } catch (final AmazonServiceException unrecoverableServiceException) {
             getLogger().error("Failed to invoke lambda {} with exception {} for flow file {} sending to fail",
-                new Object[]{functionName, unrecoverableServiceException, flowFile});
+                    functionName, unrecoverableServiceException, flowFile);
             flowFile = populateExceptionAttributes(session, flowFile, unrecoverableServiceException);
             session.transfer(flowFile, REL_FAILURE);
             context.yield();
         } catch (final Exception exception) {
             getLogger().error("Failed to invoke lambda {} with exception {} for flow file {}",
-                new Object[]{functionName, exception, flowFile});
+                    functionName, exception, flowFile);
             session.transfer(flowFile, REL_FAILURE);
             context.yield();
         }

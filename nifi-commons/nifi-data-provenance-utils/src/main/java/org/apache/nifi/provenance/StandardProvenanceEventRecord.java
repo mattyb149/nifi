@@ -29,7 +29,7 @@ import org.apache.nifi.processor.Relationship;
 /**
  * Holder for provenance relevant information
  */
-public class StandardProvenanceEventRecord implements ProvenanceEventRecord {
+public class StandardProvenanceEventRecord implements UpdateableProvenanceEventRecord {
 
     private final long eventTime;
     private final long entryDate;
@@ -124,7 +124,8 @@ public class StandardProvenanceEventRecord implements ProvenanceEventRecord {
         return storageByteOffset;
     }
 
-    void setEventId(final long eventId) {
+    @Override
+    public void setEventId(final long eventId) {
         this.eventId = eventId;
     }
 
@@ -138,7 +139,6 @@ public class StandardProvenanceEventRecord implements ProvenanceEventRecord {
         return previousEventIds;
     }
 
-    @Override
     public void setPreviousEventIds(List<Long> previousEventIds) {
         this.previousEventIds = previousEventIds;
     }
@@ -315,7 +315,8 @@ public class StandardProvenanceEventRecord implements ProvenanceEventRecord {
         }
 
         return -37423 + 3 * componentId.hashCode() + (transitUri == null ? 0 : 41 * transitUri.hashCode())
-                + (relationship == null ? 0 : 47 * relationship.hashCode()) + 44 * eventTypeCode
+                //+ (relationship == null ? 0 : 47 * relationship.hashCode())
+                + 44 * eventTypeCode
                 + 47 * getChildUuids().hashCode() + 47 * getParentUuids().hashCode();
     }
 
@@ -359,10 +360,6 @@ public class StandardProvenanceEventRecord implements ProvenanceEventRecord {
         }
 
         if (different(transitUri, other.transitUri)) {
-            return false;
-        }
-
-        if (different(relationship, other.relationship)) {
             return false;
         }
 
@@ -430,7 +427,7 @@ public class StandardProvenanceEventRecord implements ProvenanceEventRecord {
                 + ", uuid=" + uuid
                 + ", fileSize=" + contentSize
                 + ", componentId=" + componentId
-                + ", componentType" + componentType
+                + ", componentType=" + componentType
                 + ", transitUri=" + transitUri
                 + ", sourceSystemFlowFileIdentifier=" + sourceSystemFlowFileIdentifier
                 + ", parentUuids=" + parentUuids
@@ -534,7 +531,6 @@ public class StandardProvenanceEventRecord implements ProvenanceEventRecord {
             }
 
             previousEventIds = event.getPreviousEventIds();
-
             return this;
         }
 

@@ -111,19 +111,23 @@ abstract class AbstractSNMPProcessor extends AbstractProcessor {
         }
     }
 
-    protected void handleResponse(final ProcessContext context, final ProcessSession processSession, final FlowFile flowFile, final SNMPSingleResponse response,
+    protected Relationship handleResponse(final ProcessContext context, final ProcessSession processSession, final FlowFile flowFile, final SNMPSingleResponse response,
                                   final Relationship success, final Relationship failure, final String provenanceAddress) {
+        final Relationship outgoingRelationship;
         final SNMPResponseStatus snmpResponseStatus = processResponse(response);
         processSession.putAllAttributes(flowFile, response.getAttributes());
         if (snmpResponseStatus.getErrorStatus() == ErrorStatus.FAILURE) {
             getLogger().error("SNMP request failed, response error: " + snmpResponseStatus.getErrorMessage());
-            processSession.getProvenanceReporter().modifyAttributes(flowFile, response.getTargetAddress() + provenanceAddress);
+            processSession.getProvenanceReporter().modifyAttributes(flowFile, response.getTargetAddress() + provenanceAddress, failure);
+            outgoingRelationship = failure;
             processSession.transfer(flowFile, failure);
             context.yield();
         } else {
-            processSession.getProvenanceReporter().modifyAttributes(flowFile, response.getTargetAddress() + provenanceAddress);
+            processSession.getProvenanceReporter().modifyAttributes(flowFile, response.getTargetAddress() + provenanceAddress, success);
+            outgoingRelationship = success;
             processSession.transfer(flowFile, success);
         }
+        return outgoingRelationship;
     }
 
     protected SNMPResponseStatus processResponse(final SNMPSingleResponse response) {

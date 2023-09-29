@@ -179,7 +179,7 @@ public class DeleteRethinkDB extends AbstractRethinkDBProcessor {
 
                 session.getProvenanceReporter().modifyContent(flowFile,
                         new StringBuilder("rethinkdb://").append(databaseName).append("/").append(tableName).append("/").append(id).toString(),
-                        (endTimeMillis - startTimeMillis));
+                        (endTimeMillis - startTimeMillis), REL_SUCCESS);
             }
 
             session.transfer(flowFile, REL_SUCCESS);

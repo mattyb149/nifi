@@ -17,6 +17,7 @@
 
 package org.apache.nifi.graph;
 
+import org.apache.nifi.graph.exception.GraphQueryException;
 import org.apache.nifi.util.NoOpProcessor;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
@@ -25,7 +26,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.neo4j.driver.v1.Driver;
 import org.neo4j.driver.v1.Session;
-import org.neo4j.driver.v1.StatementResult;
 import org.opencypher.gremlin.neo4j.driver.GremlinDatabase;
 
 import java.util.ArrayList;
@@ -78,18 +78,19 @@ public class OpenCypherClientServiceIT {
         executeSession("MATCH (n) DETACH DELETE n");
     }
 
-    protected StatementResult executeSession(String statement) {
+    protected void executeSession(String statement) {
         try (Session session = driver.session()) {
-            return session.run(statement);
+            session.run(statement);
         }
     }
 
     @Test
-    public void testBasicQuery() {
+    public void testBasicQuery() throws GraphQueryException {
         String query = "MATCH (n) RETURN n";
+        GraphQuery graphQuery = new GraphQuery(query, GraphClientService.CYPHER);
 
         List<Map<String, Object>> results = new ArrayList<>();
-        Map<String, String> attributes = service.executeQuery(query, new HashMap<>(), (record, hasMore) -> results.add(record));
+        Map<String, String> attributes = service.executeQuery(graphQuery, new HashMap<>(), (record, hasMore) -> results.add(record));
         assertNotNull(attributes);
         assertEquals(7, attributes.size());
         assertEquals(2, results.size());

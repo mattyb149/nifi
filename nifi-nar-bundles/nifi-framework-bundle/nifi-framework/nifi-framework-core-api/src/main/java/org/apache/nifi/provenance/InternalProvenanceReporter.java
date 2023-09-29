@@ -33,12 +33,6 @@ public interface InternalProvenanceReporter extends ProvenanceReporter {
 
     ProvenanceEventRecord generateJoinEvent(Collection<FlowFile> parents, FlowFile child);
 
-    ProvenanceEventRecord generateModifyContentEvent(FlowFile flowFile, String explanation);
-
-    ProvenanceEventRecord generateCreateEvent(FlowFile flowFile, String explanation);
-
-    ProvenanceEventRecord generateModifyAttributesEvent(FlowFile flowFile, String explanation);
-
     void remove(ProvenanceEventRecord event);
 
     void removeEventsForFlowFile(String uuid);

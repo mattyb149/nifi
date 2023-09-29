@@ -71,7 +71,7 @@ import org.apache.nifi.processors.aws.wag.client.GenericApiGatewayResponse;
  * This class is the base class for invoking aws gateway api endpoints
  */
 public abstract class AbstractAWSGatewayApiProcessor extends
-                                                     AbstractAWSCredentialsProviderProcessor<GenericApiGatewayClient> {
+        AbstractAWSCredentialsProviderProcessor<GenericApiGatewayClient> {
 
     private volatile Set<String> dynamicPropertyNames = new HashSet<>();
     private volatile Pattern regexAttributesToSend = null;
@@ -626,7 +626,6 @@ public abstract class AbstractAWSGatewayApiProcessor extends
                 session.transfer(request, getRelationshipForName(REL_NO_RETRY_NAME, relationships));
             }
         }
-
     }
 
     protected boolean isSuccess(final int statusCode) {
@@ -636,7 +635,7 @@ public abstract class AbstractAWSGatewayApiProcessor extends
     protected void logRequest(final ComponentLog logger, final URI endpoint, final GenericApiGatewayRequest request) {
         try {
             logger.debug("\nRequest to remote service:\n\t{}\t{}\t\n{}",
-                new Object[]{endpoint.toURL().toExternalForm(), request.getHttpMethod(), getLogString(request.getHeaders())});
+                    endpoint.toURL().toExternalForm(), request.getHttpMethod(), getLogString(request.getHeaders()));
         } catch (final MalformedURLException e) {
             logger.debug(e.getMessage());
         }

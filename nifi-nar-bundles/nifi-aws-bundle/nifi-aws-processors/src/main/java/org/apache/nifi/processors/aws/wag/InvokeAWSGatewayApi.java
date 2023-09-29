@@ -266,9 +266,9 @@ public class InvokeAWSGatewayApi extends AbstractAWSGatewayApiProcessor {
                     // emit provenance event
                     final long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                     if (requestFlowFile != null) {
-                        session.getProvenanceReporter().fetch(responseFlowFile, endpoint, millis);
+                        session.getProvenanceReporter().fetch(responseFlowFile, endpoint, millis, getRelationshipForName(REL_RESPONSE_NAME, relationships));
                     } else {
-                        session.getProvenanceReporter().receive(responseFlowFile, endpoint, millis);
+                        session.getProvenanceReporter().receive(responseFlowFile, endpoint, millis, getRelationshipForName(REL_RESPONSE_NAME, relationships));
                     }
                 } else if (exception != null) {
                     final String contentType = "application/json";
@@ -284,9 +284,9 @@ public class InvokeAWSGatewayApi extends AbstractAWSGatewayApiProcessor {
                     final long millis = TimeUnit.NANOSECONDS
                         .toMillis(System.nanoTime() - startNanos);
                     if (requestFlowFile != null) {
-                        session.getProvenanceReporter().fetch(responseFlowFile, endpoint, millis);
+                        session.getProvenanceReporter().fetch(responseFlowFile, endpoint, millis, getRelationshipForName(REL_RESPONSE_NAME, relationships));
                     } else {
-                        session.getProvenanceReporter().receive(responseFlowFile, endpoint, millis);
+                        session.getProvenanceReporter().receive(responseFlowFile, endpoint, millis, getRelationshipForName(REL_RESPONSE_NAME, relationships));
                     }
                 }
             }
@@ -321,8 +321,9 @@ public class InvokeAWSGatewayApi extends AbstractAWSGatewayApiProcessor {
                 requestFlowFile = session.putAllAttributes(requestFlowFile, statusAttributes);
 
                 final long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-                session.getProvenanceReporter().modifyAttributes(requestFlowFile, String
-                        .format("The %s has been added. The value of which is the body of a http call to %s%s. It took %s millis,", attributeKey, endpoint, resourceName, millis));
+                session.getProvenanceReporter().modifyAttributes(requestFlowFile,
+                        String.format("The %s has been added. The value of which is the body of a http call to %s%s. It took %s millis,", attributeKey, endpoint, resourceName, millis),
+                        (Relationship) null); // TODO determine relationship or report provenance when transferring
             }
 
             route(requestFlowFile, responseFlowFile, session, context, statusCode,

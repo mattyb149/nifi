@@ -306,10 +306,10 @@ public class QueryCassandra extends AbstractCassandraProcessor {
 
                 if (logger.isDebugEnabled()) {
                     logger.info("{} contains {} records; transferring to 'success'",
-                            new Object[]{fileToProcess, nrOfRows.get()});
+                            fileToProcess, nrOfRows.get());
                 }
                 session.getProvenanceReporter().modifyContent(fileToProcess, "Retrieved " + nrOfRows.get() + " rows",
-                        stopWatch.getElapsed(TimeUnit.MILLISECONDS));
+                        stopWatch.getElapsed(TimeUnit.MILLISECONDS), REL_SUCCESS);
                 session.transfer(fileToProcess, REL_SUCCESS);
 
                 if (outputBatchSize > 0) {

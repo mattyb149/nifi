@@ -494,15 +494,15 @@ public class GetSmbFile extends AbstractProcessor {
                             attributes.put(SHARE.getName(), shareName);
 
                             flowFile = session.putAllAttributes(flowFile, attributes);
-                            session.getProvenanceReporter().receive(flowFile, uri.toString(), importMillis);
+                            session.getProvenanceReporter().receive(flowFile, uri.toString(), importMillis, REL_SUCCESS);
 
                             session.transfer(flowFile, REL_SUCCESS);
-                            logger.info("added {} to flow", new Object[]{flowFile});
+                            logger.info("added {} to flow", flowFile);
 
                         } catch (SMBApiException e) {
                             // do not fail whole batch if a single file cannot be accessed
                             if (e.getStatus() == NtStatus.STATUS_SHARING_VIOLATION) {
-                                logger.info("Could not acquire sharing access for file {}", new Object[]{file});
+                                logger.info("Could not acquire sharing access for file {}", file);
                                 if (flowFile != null) {
                                     session.remove(flowFile);
                                 }

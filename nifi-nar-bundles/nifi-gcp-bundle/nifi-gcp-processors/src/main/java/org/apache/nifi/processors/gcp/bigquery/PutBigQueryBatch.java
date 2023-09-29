@@ -348,7 +348,7 @@ public class PutBigQueryBatch extends AbstractBigQueryProcessor {
                         flowFile = session.penalize(flowFile);
                         session.transfer(flowFile, REL_FAILURE);
                     } else {
-                        session.getProvenanceReporter().send(flowFile, job.getSelfLink(), job.getStatistics().getEndTime() - job.getStatistics().getStartTime());
+                        session.getProvenanceReporter().send(flowFile, job.getSelfLink(), job.getStatistics().getEndTime() - job.getStatistics().getStartTime(), REL_SUCCESS);
                         session.transfer(flowFile, REL_SUCCESS);
                     }
                 }

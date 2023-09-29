@@ -191,12 +191,13 @@ public abstract class AbstractRecordProcessor extends AbstractProcessor {
         if(!includeZeroRecordFlowFiles && recordCount.get() == 0){
             session.remove(flowFile);
         } else {
+            session.getProvenanceReporter().modifyContent(flowFile, REL_SUCCESS);
             session.transfer(flowFile, REL_SUCCESS);
         }
 
         final int count = recordCount.get();
         session.adjustCounter("Records Processed", count, false);
-        getLogger().info("Successfully converted {} records for {}", new Object[] {count, flowFile});
+        getLogger().info("Successfully converted {} records for {}", count, flowFile);
     }
 
     protected abstract Record process(Record record, FlowFile flowFile, ProcessContext context, long count);

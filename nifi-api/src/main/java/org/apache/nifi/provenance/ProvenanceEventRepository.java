@@ -92,20 +92,4 @@ public interface ProvenanceEventRepository {
      * @throws IOException if failure closing repository
      */
     void close() throws IOException;
-
-    /**
-     * Returns the previous provenance event IDs for the given FlowFile
-     * @param flowFileUUID the UUID of the FlowFile
-     * @return the previous event IDs for the given FlowFile
-     */
-    List<Long> getPreviousEventIds(String flowFileUUID);
-
-    /**
-     * Updates the previous provenance event IDs for the given event
-     *
-     * @param record The record for which to update the previous event IDs
-     * @param previousIds the list of previous event IDs to set for the record, or null to remove
-     */
-    void updatePreviousEventIds(ProvenanceEventRecord record, List<Long> previousIds);
-
 }

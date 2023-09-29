@@ -180,7 +180,7 @@ public class PutAzureBlobStorage extends AbstractAzureBlobProcessor {
             session.transfer(flowFile, REL_SUCCESS);
 
             final long transferMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-            session.getProvenanceReporter().send(flowFile, blob.getSnapshotQualifiedUri().toString(), transferMillis);
+            session.getProvenanceReporter().send(flowFile, blob.getSnapshotQualifiedUri().toString(), transferMillis, REL_SUCCESS);
 
         } catch (IllegalArgumentException | URISyntaxException | StorageException | ProcessException | DecoderException e) {
             if (e instanceof ProcessException && storedException.get() == null) {

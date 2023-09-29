@@ -334,7 +334,7 @@ public class JoltTransformJSON extends AbstractProcessor {
         final String transformType = context.getProperty(JOLT_TRANSFORM).getValue();
         transformed = session.putAttribute(transformed, CoreAttributes.MIME_TYPE.key(), "application/json");
         session.transfer(transformed, REL_SUCCESS);
-        session.getProvenanceReporter().modifyContent(transformed, "Modified With " + transformType, stopWatch.getElapsed(TimeUnit.MILLISECONDS));
+        session.getProvenanceReporter().modifyContent(transformed, "Modified With " + transformType, stopWatch.getElapsed(TimeUnit.MILLISECONDS), REL_SUCCESS);
         logger.info("Transform completed for {}", original);
     }
 

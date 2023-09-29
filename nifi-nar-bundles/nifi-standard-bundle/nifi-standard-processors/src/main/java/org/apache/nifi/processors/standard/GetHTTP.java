@@ -493,7 +493,7 @@ public class GetHTTP extends AbstractSessionFactoryProcessor {
                     final long flowFileSize = flowFile.getSize();
                     stopWatch.stop();
                     final String dataRate = stopWatch.calculateDataRate(flowFileSize);
-                    session.getProvenanceReporter().receive(flowFile, url, stopWatch.getDuration(TimeUnit.MILLISECONDS));
+                    session.getProvenanceReporter().receive(flowFile, url, stopWatch.getDuration(TimeUnit.MILLISECONDS), REL_SUCCESS);
                     session.transfer(flowFile, REL_SUCCESS);
                     logger.info("Successfully received {} from {} at a rate of {}; transferred to success", new Object[]{flowFile, url, dataRate});
 

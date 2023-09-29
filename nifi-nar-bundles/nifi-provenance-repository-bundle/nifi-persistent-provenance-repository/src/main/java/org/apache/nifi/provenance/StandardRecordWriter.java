@@ -144,6 +144,9 @@ public class StandardRecordWriter extends CompressableRecordWriter implements Re
         // write out the identifier of the destination queue.
         writeNullableString(out, record.getSourceQueueIdentifier(), "SourceQueueIdentifier");
 
+        // write out the relationship to which the associated FlowFile was transferred
+        writeNullableString(out, record.getRelationship(), "Relationship");
+
         // Write type-specific info
         if (recordType == ProvenanceEventType.FORK || recordType == ProvenanceEventType.JOIN || recordType == ProvenanceEventType.CLONE || recordType == ProvenanceEventType.REPLAY) {
             writeUUIDs(out, record.getParentUuids());
@@ -157,8 +160,6 @@ public class StandardRecordWriter extends CompressableRecordWriter implements Re
             writeNullableString(out, record.getTransitUri(), "TransitUri");
         } else if (recordType == ProvenanceEventType.ADDINFO) {
             writeNullableString(out, record.getAlternateIdentifierUri(), "AlternateIdentifierUri");
-        } else if (recordType == ProvenanceEventType.ROUTE) {
-            writeNullableString(out, record.getRelationship(), "Relationship");
         }
     }
 

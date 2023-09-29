@@ -80,7 +80,8 @@ public class JsonQueryElasticsearch extends AbstractJsonQueryElasticsearch<JsonQ
             session.getProvenanceReporter().send(
                     input,
                     clientService.get().getTransitUrl(queryJsonParameters.getIndex(), queryJsonParameters.getType()),
-                    stopWatch.getElapsed(TimeUnit.MILLISECONDS)
+                    stopWatch.getElapsed(TimeUnit.MILLISECONDS),
+                    REL_HITS
             );
         }
 

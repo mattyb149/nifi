@@ -18,6 +18,7 @@
 package org.apache.nifi.graph;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.nifi.graph.exception.GraphQueryException;
 import org.apache.nifi.util.NoOpProcessor;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
@@ -34,13 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * As of JanusGraph 0.3.X these tests can be a little inconsistent for a few runs at first.
  */
 public class GremlinClientServiceIT {
-    private TestRunner runner;
     private TestableGremlinClientService clientService;
 
     @BeforeEach
     public void setup() throws Exception {
         clientService = new TestableGremlinClientService();
-        runner = TestRunners.newTestRunner(NoOpProcessor.class);
+        TestRunner runner = TestRunners.newTestRunner(NoOpProcessor.class);
         runner.addControllerService("gremlinService", clientService);
         runner.setProperty(clientService, AbstractTinkerpopClientService.CONTACT_POINTS, "localhost");
         runner.enableControllerService(clientService);
@@ -59,19 +59,21 @@ public class GremlinClientServiceIT {
     }
 
     @Test
-    public void testValueMap() {
+    public void testValueMap() throws GraphQueryException {
         String gremlin = "g.V().hasLabel('dog').valueMap()";
+        GraphQuery graphQuery = new GraphQuery(gremlin, GraphClientService.GREMLIN);
         AtomicInteger integer = new AtomicInteger();
-        Map<String, String> result = clientService.executeQuery(gremlin, new HashMap<>(), (record, isMore) -> integer.incrementAndGet());
+        Map<String, String> result = clientService.executeQuery(graphQuery, new HashMap<>(), (record, isMore) -> integer.incrementAndGet());
 
         assertEquals(2, integer.get());
     }
 
     @Test
-    public void testCount() {
+    public void testCount() throws GraphQueryException {
         String gremlin = "g.V().hasLabel('dog').count()";
+        GraphQuery graphQuery = new GraphQuery(gremlin, GraphClientService.GREMLIN);
         AtomicInteger integer = new AtomicInteger();
-        Map<String, String> result = clientService.executeQuery(gremlin, new HashMap<>(), (record, isMore) -> integer.incrementAndGet());
+        Map<String, String> result = clientService.executeQuery(graphQuery, new HashMap<>(), (record, isMore) -> integer.incrementAndGet());
         assertEquals(1, integer.get());
     }
 }

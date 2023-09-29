@@ -57,7 +57,7 @@ public class TestNeo4JCypherClientService {
                 new GraphQuery("MERGE (p:NiFiProvenanceEvent {color: \"blue\",name: \"Joe\",age: \"40\"})", GraphClientService.CYPHER),
                 new GraphQuery("MERGE (p:NiFiProvenanceEvent {name: \"Mary\",state: \"FL\",age: \"40\"})", GraphClientService.CYPHER)
         );
-        final List<GraphQuery> queryList = clientService.buildQueryFromNodes(nodeList, new HashMap<>());
+        final List<GraphQuery> queryList = clientService.buildProvenanceQueriesFromNodes(nodeList, new HashMap<>(), false);
         assertEquals(expectedQueryList, queryList);
     }
 }

@@ -291,7 +291,7 @@ public class PutIgniteCache extends AbstractIgniteCacheProcessor {
                 session.transfer(successfulFlowFiles, REL_SUCCESS);
                 for (FlowFile flowFile : successfulFlowFiles) {
                     String key = context.getProperty(IGNITE_CACHE_ENTRY_KEY).evaluateAttributeExpressions(flowFile).getValue();
-                    session.getProvenanceReporter().send(flowFile, "ignite://cache/" + getIgniteCache().getName() + "/" + key);
+                    session.getProvenanceReporter().send(flowFile, "ignite://cache/" + getIgniteCache().getName() + "/" + key, REL_SUCCESS);
                 }
             }
 

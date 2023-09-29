@@ -254,12 +254,9 @@ public abstract class AbstractFlowFileServerProtocol implements ServerProtocol {
             final StopWatch transferWatch = new StopWatch(true);
 
             final FlowFile toSend = flowFile;
-            session.read(flowFile, new InputStreamCallback() {
-                @Override
-                public void process(final InputStream in) throws IOException {
-                    final DataPacket dataPacket = new StandardDataPacket(toSend.getAttributes(), in, toSend.getSize());
-                    codec.encode(dataPacket, checkedOutputStream);
-                }
+            session.read(flowFile, in -> {
+                final DataPacket dataPacket = new StandardDataPacket(toSend.getAttributes(), in, toSend.getSize());
+                codec.encode(dataPacket, checkedOutputStream);
             });
 
             final long transmissionMillis = transferWatch.getElapsed(TimeUnit.MILLISECONDS);
@@ -275,7 +272,7 @@ public abstract class AbstractFlowFileServerProtocol implements ServerProtocol {
             bytesSent += flowFile.getSize();
 
             final String transitUri = createTransitUri(peer, flowFile.getAttribute(CoreAttributes.UUID.key()));
-            session.getProvenanceReporter().send(flowFile, transitUri, "Remote Host=" + peer.getHost() + ", Remote DN=" + remoteDn, transmissionMillis, false);
+            session.getProvenanceReporter().send(flowFile, transitUri, "Remote Host=" + peer.getHost() + ", Remote DN=" + remoteDn, transmissionMillis, false, null);
             session.remove(flowFile);
 
             // determine if we should check for more data on queue.
@@ -368,7 +365,7 @@ public abstract class AbstractFlowFileServerProtocol implements ServerProtocol {
             throw e;
         }
 
-        logger.debug("{} received {} from {}", new Object[]{this, transactionResponse, peer});
+        logger.debug("{} received {} from {}", this, transactionResponse, peer);
         if (transactionResponse.getCode() == ResponseCode.TRANSACTION_FINISHED_BUT_DESTINATION_FULL) {
             peer.penalize(port.getIdentifier(), port.getYieldPeriod(TimeUnit.MILLISECONDS));
         } else if (transactionResponse.getCode() != ResponseCode.TRANSACTION_FINISHED) {
@@ -474,7 +471,7 @@ public abstract class AbstractFlowFileServerProtocol implements ServerProtocol {
 
             final String transitUri = createTransitUri(peer, sourceSystemFlowFileUuid);
             session.getProvenanceReporter().receive(flowFile, transitUri, sourceSystemFlowFileUuid == null
-                    ? null : "urn:nifi:" + sourceSystemFlowFileUuid, "Remote Host=" + peer.getHost() + ", Remote DN=" + remoteDn, transferMillis);
+                    ? null : "urn:nifi:" + sourceSystemFlowFileUuid, "Remote Host=" + peer.getHost() + ", Remote DN=" + remoteDn, transferMillis, Relationship.ANONYMOUS);
             session.transfer(flowFile, Relationship.ANONYMOUS);
             flowFilesReceived.add(flowFile);
             bytesReceived += flowFile.getSize();

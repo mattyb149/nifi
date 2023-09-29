@@ -193,6 +193,8 @@ public class StandardRecordReader extends CompressableRecordReader {
             builder.setAttributes(Collections.<String, String>emptyMap(), attrs);
         }
 
+        builder.setRelationship(readNullableString(dis));
+
         // Read Event-Type specific fields.
         if (eventType == ProvenanceEventType.FORK || eventType == ProvenanceEventType.JOIN || eventType == ProvenanceEventType.CLONE || eventType == ProvenanceEventType.REPLAY) {
             final int numParents = dis.readInt();
@@ -213,8 +215,6 @@ public class StandardRecordReader extends CompressableRecordReader {
             builder.setTransitUri(readNullableString(dis));
         } else if (eventType == ProvenanceEventType.ADDINFO) {
             builder.setAlternateIdentifierUri(readNullableString(dis));
-        } else if (eventType == ProvenanceEventType.ROUTE) {
-            builder.setRelationship(readNullableString(dis));
         }
 
         builder.setFlowFileEntryDate(flowFileEntryDate);

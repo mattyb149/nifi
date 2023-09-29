@@ -215,7 +215,7 @@ public abstract class AbstractAWSProcessor<ClientType extends AmazonWebServiceCl
         }
 
         if (proxyUserSet && !proxyHostSet) {
-            validationResults.add(new ValidationResult.Builder().subject("Proxy").valid(false).explanation("If Proxy Username or Proxy Password").build());
+            validationResults.add(new ValidationResult.Builder().subject("Proxy").valid(false).explanation("If Proxy Username is set then Proxy Host and Proxy Port must be set").build());
         }
 
         ProxyConfiguration.validateProxySpec(validationContext, validationResults, PROXY_SPECS);

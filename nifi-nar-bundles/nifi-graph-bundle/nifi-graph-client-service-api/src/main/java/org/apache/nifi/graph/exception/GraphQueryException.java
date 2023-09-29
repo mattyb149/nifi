@@ -14,27 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.nifi.provenance;
+package org.apache.nifi.graph.exception;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
 
-public abstract class AbstractProvenanceRepository implements ProvenanceRepository {
-
-    protected final Map<String, List<Long>> previousEventIdsMap = new HashMap<>();
-
-    @Override
-    public List<Long> getPreviousEventIds(String flowFileUUID) {
-        return previousEventIdsMap.get(flowFileUUID);
+/**
+ * This class represents an exception that happens while issuing a query to the graph database.
+ */
+public class GraphQueryException extends IOException {
+    public GraphQueryException(String message) {
+        super(message);
     }
 
-    @Override
-    public void updatePreviousEventIds(ProvenanceEventRecord record, List<Long> previousIds) {
-        if (previousIds == null) {
-            previousEventIdsMap.remove(record.getFlowFileUuid());
-        } else {
-            previousEventIdsMap.put(record.getFlowFileUuid(), previousIds);
-        }
+    public GraphQueryException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public GraphQueryException(Throwable cause) {
+        super(cause);
     }
 }

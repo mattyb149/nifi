@@ -248,14 +248,14 @@ public class FetchElasticsearchHttp extends AbstractElasticsearchHttpProcessor {
                     // emit provenance event
                     final long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                     if (context.hasNonLoopConnection()) {
-                        session.getProvenanceReporter().fetch(flowFile, url.toExternalForm(), millis);
+                        session.getProvenanceReporter().fetch(flowFile, url.toExternalForm(), millis, REL_SUCCESS);
                     } else {
-                        session.getProvenanceReporter().receive(flowFile, url.toExternalForm(), millis);
+                        session.getProvenanceReporter().receive(flowFile, url.toExternalForm(), millis, REL_SUCCESS);
                     }
                     session.transfer(flowFile, REL_SUCCESS);
                 } else {
                     logger.debug("Failed to read {}/{}/{} from Elasticsearch: Document not found",
-                            new Object[]{index, docType, docId});
+                            index, docType, docId);
 
                     // We couldn't find the document, so send it to "not found"
                     session.transfer(flowFile, REL_NOT_FOUND);
@@ -263,7 +263,7 @@ public class FetchElasticsearchHttp extends AbstractElasticsearchHttpProcessor {
             } else {
                 if (statusCode == 404) {
                     logger.warn("Failed to read {}/{}/{} from Elasticsearch: Document not found",
-                            new Object[]{index, docType, docId});
+                            index, docType, docId);
 
                     // We couldn't find the document, so penalize it and send it to "not found"
                     session.transfer(flowFile, REL_NOT_FOUND);

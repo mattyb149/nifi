@@ -451,9 +451,9 @@ public class GetFile extends AbstractProcessor {
                     flowFile = session.putAllAttributes(flowFile, attributes);
                 }
 
-                session.getProvenanceReporter().receive(flowFile, file.toURI().toString(), importMillis);
+                session.getProvenanceReporter().receive(flowFile, file.toURI().toString(), importMillis, REL_SUCCESS);
                 session.transfer(flowFile, REL_SUCCESS);
-                logger.info("added {} to flow", new Object[]{flowFile});
+                logger.info("added {} to flow", flowFile);
 
                 if (!isScheduled()) {  // if processor stopped, put the rest of the files back on the queue.
                     queueLock.lock();

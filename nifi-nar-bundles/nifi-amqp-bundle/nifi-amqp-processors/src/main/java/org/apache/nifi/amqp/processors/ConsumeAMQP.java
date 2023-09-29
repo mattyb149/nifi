@@ -174,7 +174,7 @@ public class ConsumeAMQP extends AbstractAMQPProcessor<AMQPConsumer> {
                     context.getProperty(HEADER_SEPARATOR).toString());
             flowFile = session.putAllAttributes(flowFile, attributes);
 
-            session.getProvenanceReporter().receive(flowFile, connection.toString() + "/" + context.getProperty(QUEUE).getValue());
+            session.getProvenanceReporter().receive(flowFile, connection.toString() + "/" + context.getProperty(QUEUE).getValue(), REL_SUCCESS);
             session.transfer(flowFile, REL_SUCCESS);
             lastReceived = response;
         }

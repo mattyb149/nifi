@@ -244,17 +244,21 @@ public class PutJMS extends AbstractProcessor {
                 }
 
                 successfulFlowFiles.add(flowFile);
-                session.getProvenanceReporter().send(flowFile, context.getProperty(URL).getValue());
             }
 
             try {
                 jmsSession.commit();
-
+                for (FlowFile flowFile : successfulFlowFiles) {
+                    session.getProvenanceReporter().send(flowFile, context.getProperty(URL).getValue(), REL_SUCCESS);
+                }
                 session.transfer(successfulFlowFiles, REL_SUCCESS);
                 final String flowFileDescription = successfulFlowFiles.size() > 10 ? successfulFlowFiles.size() + " FlowFiles" : successfulFlowFiles.toString();
                 logger.info("Sent {} to JMS Server and transferred to 'success'", new Object[]{flowFileDescription});
             } catch (JMSException e) {
                 logger.error("Failed to commit JMS Session due to {} and transferred to 'failure'", new Object[]{e});
+                for (FlowFile flowFile : flowFiles) {
+                    session.getProvenanceReporter().send(flowFile, context.getProperty(URL).getValue(), REL_FAILURE);
+                }
                 session.transfer(flowFiles, REL_FAILURE);
                 context.yield();
                 wrappedProducer.close(logger);

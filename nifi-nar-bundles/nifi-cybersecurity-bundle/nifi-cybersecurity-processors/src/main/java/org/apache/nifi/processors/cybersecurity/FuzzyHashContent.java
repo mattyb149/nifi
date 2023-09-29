@@ -74,8 +74,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @DeprecationNotice(reason = "Unmaintained and planned for removal in version 2.0")
 public class FuzzyHashContent extends AbstractFuzzyHashProcessor {
 
-
-
     public static final PropertyDescriptor HASH_ALGORITHM = new PropertyDescriptor.Builder()
             .name("HASH_ALGORITHM")
             .displayName("Hashing Algorithm")
@@ -166,11 +164,11 @@ public class FuzzyHashContent extends AbstractFuzzyHashProcessor {
 
             final String attributeName = context.getProperty(ATTRIBUTE_NAME).getValue();
             flowFile = session.putAttribute(flowFile, attributeName, hashValueHolder.get());
-            logger.info("Successfully added attribute '{}' to {} with a value of {}; routing to success", new Object[]{attributeName, flowFile, hashValueHolder.get()});
-            session.getProvenanceReporter().modifyAttributes(flowFile);
+            logger.info("Successfully added attribute '{}' to {} with a value of {}; routing to success", attributeName, flowFile, hashValueHolder.get());
+            session.getProvenanceReporter().modifyAttributes(flowFile, REL_SUCCESS);
             session.transfer(flowFile, REL_SUCCESS);
         } catch (final InsufficientComplexityException | ProcessException e) {
-            logger.error("Failed to process {} due to {}; routing to failure", new Object[]{flowFile, e});
+            logger.error("Failed to process {} due to {}; routing to failure", flowFile, e);
             session.transfer(flowFile, REL_FAILURE);
         }
     }

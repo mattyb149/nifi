@@ -160,7 +160,7 @@ public class GetAzureQueueStorage extends AbstractAzureQueueStorage {
             });
 
             session.transfer(flowFile, REL_SUCCESS);
-            session.getProvenanceReporter().receive(flowFile, cloudQueue.getStorageUri().toString());
+            session.getProvenanceReporter().receive(flowFile, cloudQueue.getStorageUri().toString(), REL_SUCCESS);
         }
 
         if(autoDelete) {

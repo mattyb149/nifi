@@ -365,7 +365,7 @@ public class PutElasticsearchHttp extends AbstractElasticsearchHttpProcessor {
                                     } else {
                                         session.transfer(flowFile, REL_SUCCESS);
                                         // Record provenance event
-                                        session.getProvenanceReporter().send(flowFile, url.toString());
+                                        session.getProvenanceReporter().send(flowFile, url.toString(), REL_SUCCESS);
                                     }
                                 }
                             }
@@ -375,7 +375,7 @@ public class PutElasticsearchHttp extends AbstractElasticsearchHttpProcessor {
                     flowFilesToTransfer.forEach(file -> {
                         session.transfer(file, REL_SUCCESS);
                         // Record provenance event
-                        session.getProvenanceReporter().send(file, url.toString());
+                        session.getProvenanceReporter().send(file, url.toString(), REL_SUCCESS);
                     });
                 } catch (IOException ioe) {
                     // Something went wrong when parsing the response, log the error and route to failure

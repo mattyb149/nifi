@@ -485,7 +485,7 @@ public class QueryElasticsearchHttp extends AbstractElasticsearchHttpProcessor {
                     throw new UnretryableException(String.format("Elasticsearch returned code %s with message %s, transferring flow file to failure",
                             statusCode, getResponse.message()));
                 } else {
-                    logger.warn("Elasticsearch returned code {} with message {}", new Object[]{statusCode, getResponse.message()});
+                    logger.warn("Elasticsearch returned code {} with message {}", statusCode, getResponse.message());
                 }
             } finally {
                 if (!page.isEmpty()) {
@@ -499,9 +499,9 @@ public class QueryElasticsearchHttp extends AbstractElasticsearchHttpProcessor {
         final long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
         if (!page.isEmpty()) {
             if (context.hasNonLoopConnection()) {
-                page.forEach(f -> session.getProvenanceReporter().fetch(f, url.toExternalForm(), millis));
+                page.forEach(f -> session.getProvenanceReporter().fetch(f, url.toExternalForm(), millis, REL_SUCCESS));
             } else {
-                page.forEach(f -> session.getProvenanceReporter().receive(f, url.toExternalForm(), millis));
+                page.forEach(f -> session.getProvenanceReporter().receive(f, url.toExternalForm(), millis, REL_SUCCESS));
             }
         }
         return page.size();

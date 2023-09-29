@@ -16,6 +16,7 @@
  */
 package org.apache.nifi.graph;
 
+import org.apache.nifi.graph.exception.GraphQueryException;
 import org.apache.nifi.util.NoOpProcessor;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
@@ -56,7 +57,7 @@ public class ITNeo4JCypher3Executor {
     protected String password = "testing1234";
 
     private GraphClientService clientService;
-    private GraphQueryResultCallback EMPTY_CALLBACK = (record, hasMore) -> {};
+    private final GraphQueryResultCallback EMPTY_CALLBACK = (record, hasMore) -> {};
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -91,10 +92,11 @@ public class ITNeo4JCypher3Executor {
     }
 
     @Test
-    public void testCreateNodeNoReturn() {
+    public void testCreateNodeNoReturn() throws GraphQueryException {
         String query = "create (n:nodereturn { name: \"Testing\"})";
+        final GraphQuery graphQuery = new GraphQuery(query, GraphClientService.CYPHER);
 
-        Map<String, String> attributes = clientService.executeQuery(query, new HashMap<>(), EMPTY_CALLBACK);
+        Map<String, String> attributes = clientService.executeQuery(graphQuery, new HashMap<>(), EMPTY_CALLBACK);
         assertEquals("1",attributes.get(GraphClientService.LABELS_ADDED));
         assertEquals("1",attributes.get(GraphClientService.NODES_CREATED));
         assertEquals("0",attributes.get(GraphClientService.NODES_DELETED));
@@ -105,11 +107,12 @@ public class ITNeo4JCypher3Executor {
     }
 
     @Test
-    public void testCreateNodeOnePropertyWithReturn() {
+    public void testCreateNodeOnePropertyWithReturn() throws GraphQueryException {
         String query = "create (n { name:'abc' }) return n.name";
+        final GraphQuery graphQuery = new GraphQuery(query, GraphClientService.CYPHER);
 
         final List<Map<String, Object>> result = new ArrayList<>();
-        Map<String, String> attributes = clientService.executeQuery(query, new HashMap<>(), (record, hasMore) -> result.add(record));
+        Map<String, String> attributes = clientService.executeQuery(graphQuery, new HashMap<>(), (record, hasMore) -> result.add(record));
         assertEquals("0",attributes.get(GraphClientService.LABELS_ADDED));
         assertEquals("1",attributes.get(GraphClientService.NODES_CREATED));
         assertEquals("0",attributes.get(GraphClientService.NODES_DELETED));
@@ -122,11 +125,12 @@ public class ITNeo4JCypher3Executor {
     }
 
     @Test
-    public void testCreateNodeTwoPropertyOneLabelWithReturn() {
+    public void testCreateNodeTwoPropertyOneLabelWithReturn() throws GraphQueryException {
         String query = "create (n:Person { name:'abc', age : 1 }) return n.name, n.age";
+        final GraphQuery graphQuery = new GraphQuery(query, GraphClientService.CYPHER);
 
         final List<Map<String, Object>> result = new ArrayList<>();
-        Map<String, String> attributes = clientService.executeQuery(query, new HashMap<>(), (record, hasMore) -> {
+        Map<String, String> attributes = clientService.executeQuery(graphQuery, new HashMap<>(), (record, hasMore) -> {
             result.add(record);
         });
 
@@ -139,15 +143,16 @@ public class ITNeo4JCypher3Executor {
         assertEquals("1",attributes.get(GraphClientService.ROWS_RETURNED));
         assertEquals(1, result.size());
         assertEquals("abc", result.get(0).get("n.name"));
-        assertEquals(1l, result.get(0).get("n.age"));
+        assertEquals(1L, result.get(0).get("n.age"));
     }
 
     @Test
-    public void testCreateTwoNodeTwoPropertyOneRelationshipWithReturn() {
+    public void testCreateTwoNodeTwoPropertyOneRelationshipWithReturn() throws GraphQueryException {
         String query = "create (m:Person { name:'abc', age : 1 }) create (n:Person { name : 'pqr'}) create (m)-[r:hello]->(n) return m.name, n.name, type(r)";
+        final GraphQuery graphQuery = new GraphQuery(query, GraphClientService.CYPHER);
 
         List<Map<String, Object>> result = new ArrayList<>();
-        Map<String, String> attributes = clientService.executeQuery(query, new HashMap<>(), ((record, isMore) -> result.add(record)));
+        Map<String, String> attributes = clientService.executeQuery(graphQuery, new HashMap<>(), ((record, isMore) -> result.add(record)));
         assertEquals("2",attributes.get(GraphClientService.LABELS_ADDED));
         assertEquals("2",attributes.get(GraphClientService.NODES_CREATED));
         assertEquals("0",attributes.get(GraphClientService.NODES_DELETED));
