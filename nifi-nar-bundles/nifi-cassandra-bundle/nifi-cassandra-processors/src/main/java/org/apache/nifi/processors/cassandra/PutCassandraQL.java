@@ -16,11 +16,7 @@
  */
 package org.apache.nifi.processors.cassandra;
 
-import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ResultSetFuture;
-import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TypeCodec;
 import com.datastax.driver.core.exceptions.InvalidTypeException;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
@@ -38,6 +34,10 @@ import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.lifecycle.OnStopped;
+import org.apache.nifi.cassandra.CassandraBoundStatement;
+import org.apache.nifi.cassandra.CassandraPreparedStatement;
+import org.apache.nifi.cassandra.CassandraResultSetFuture;
+import org.apache.nifi.cassandra.CassandraSession;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.flowfile.FlowFile;
@@ -128,7 +128,7 @@ public class PutCassandraQL extends AbstractCassandraProcessor {
      * LRU cache for the compiled patterns. The size of the cache is determined by the value of the Statement Cache Size property
      */
     @VisibleForTesting
-    private ConcurrentMap<String, PreparedStatement> statementCache;
+    private ConcurrentMap<String, CassandraPreparedStatement> statementCache;
 
     /*
      * Will ensure that the list of property descriptors is build only once.
@@ -167,7 +167,7 @@ public class PutCassandraQL extends AbstractCassandraProcessor {
         int statementCacheSize = context.getProperty(STATEMENT_CACHE_SIZE).evaluateAttributeExpressions().asInteger();
         statementCache =  CacheBuilder.newBuilder()
                 .maximumSize(statementCacheSize)
-                .<String, PreparedStatement>build()
+                .<String, CassandraPreparedStatement>build()
                 .asMap();
     }
 
@@ -185,16 +185,16 @@ public class PutCassandraQL extends AbstractCassandraProcessor {
 
         // The documentation for the driver recommends the session remain open the entire time the processor is running
         // and states that it is thread-safe. This is why connectionSession is not in a try-with-resources.
-        final Session connectionSession = cassandraSession.get();
+        final CassandraSession connectionSession = cassandraSession.get();
 
         String cql = getCQL(session, flowFile, charset);
         try {
-            PreparedStatement statement = statementCache.get(cql);
+            CassandraPreparedStatement statement = statementCache.get(cql);
             if(statement == null) {
                 statement = connectionSession.prepare(cql);
                 statementCache.put(cql, statement);
             }
-            BoundStatement boundStatement = statement.bind();
+            CassandraBoundStatement boundStatement = statement.bind();
 
             Map<String, String> attributes = flowFile.getAttributes();
             for (final Map.Entry<String, String> entry : attributes.entrySet()) {
@@ -221,7 +221,7 @@ public class PutCassandraQL extends AbstractCassandraProcessor {
             }
 
             try {
-                ResultSetFuture future = connectionSession.executeAsync(boundStatement);
+                CassandraResultSetFuture future = connectionSession.executeAsync(boundStatement);
                 if (statementTimeout > 0) {
                     future.getUninterruptibly(statementTimeout, TimeUnit.MILLISECONDS);
                 } else {
@@ -231,7 +231,7 @@ public class PutCassandraQL extends AbstractCassandraProcessor {
                 final long transmissionMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
 
                 // This isn't a real URI but since Cassandra is distributed we just use the cluster name
-                String transitUri = "cassandra://" + connectionSession.getCluster().getMetadata().getClusterName();
+                String transitUri = "cassandra://" + connectionSession.getClusterName();
                 session.getProvenanceReporter().send(flowFile, transitUri, transmissionMillis, true);
                 session.transfer(flowFile, REL_SUCCESS);
 
@@ -295,14 +295,14 @@ public class PutCassandraQL extends AbstractCassandraProcessor {
      * Determines how to map the given value to the appropriate Cassandra data type and returns the object as
      * represented by the given type. This can be used in a Prepared/BoundStatement.
      *
-     * @param statement  the BoundStatement for setting objects on
+     * @param statement  the CassandraBoundStatement for setting objects on
      * @param paramIndex the index of the parameter at which to set the object
      * @param attrName   the name of the attribute that the parameter is coming from - for logging purposes
      * @param paramValue the value of the CQL parameter to set
      * @param paramType  the Cassandra data type of the CQL parameter to set
      * @throws IllegalArgumentException if the PreparedStatement throws a CQLException when calling the appropriate setter
      */
-    protected void setStatementObject(final BoundStatement statement, final int paramIndex, final String attrName,
+    protected void setStatementObject(final CassandraBoundStatement statement, final int paramIndex, final String attrName,
                                       final String paramValue, final String paramType) throws IllegalArgumentException {
         if (paramValue == null) {
             statement.setToNull(paramIndex);

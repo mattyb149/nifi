@@ -286,7 +286,7 @@ public class AbstractCassandraProcessorTest {
         }
 
         @Override
-        protected Cluster createCluster(List<InetSocketAddress> contactPoints, SSLContext sslContext,
+        protected Cluster createSession(List<InetSocketAddress> contactPoints, SSLContext sslContext,
                                         String username, String password, String compressionType) {
             Cluster mockCluster = mock(Cluster.class);
             Metadata mockMetadata = mock(Metadata.class);

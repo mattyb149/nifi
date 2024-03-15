@@ -24,6 +24,10 @@
     <artifactId>nifi-cassandra-services</artifactId>
     <packaging>jar</packaging>
 
+    <properties>
+        <cassandra.sdk.version>3.11.5</cassandra.sdk.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.nifi</groupId>

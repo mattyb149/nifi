@@ -16,20 +16,6 @@
  */
 package org.apache.nifi.processors.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.CodecRegistry;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.ProtocolOptions;
-import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.SSLOptions;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.TypeCodec;
-import com.datastax.driver.core.exceptions.AuthenticationException;
-import com.datastax.driver.core.exceptions.NoHostAvailableException;
-import com.datastax.driver.extras.codecs.arrays.ObjectArrayCodec;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,11 +24,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLContext;
+
+import com.datastax.driver.core.DataType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
+import org.apache.nifi.cassandra.AuthenticationException;
+import org.apache.nifi.cassandra.CassandraRow;
+import org.apache.nifi.cassandra.CassandraSession;
 import org.apache.nifi.cassandra.CassandraSessionProviderService;
+import org.apache.nifi.cassandra.NoHostAvailableException;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.components.ValidationContext;
@@ -134,7 +126,7 @@ public abstract class AbstractCassandraProcessor extends AbstractProcessor {
             .name("Consistency Level")
             .description("The strategy for how many replicas must respond before results are returned.")
             .required(false)
-            .allowableValues(ConsistencyLevel.values())
+            .allowableValues("ANY", "ONE", "TWO", "THREE", "QUORUM", "ALL", "LOCAL_QUORUM", "EACH_QUORUM", "SERIAL", "LOCAL_SERIAL", "LOCAL_ONE")
             .defaultValue("ONE")
             .build();
 
@@ -142,7 +134,7 @@ public abstract class AbstractCassandraProcessor extends AbstractProcessor {
             .name("Compression Type")
             .description("Enable compression at transport-level requests and responses")
             .required(false)
-            .allowableValues(ProtocolOptions.Compression.values())
+            .allowableValues("NONE", "SNAPPY", "LZ4")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .defaultValue("NONE")
             .build();
@@ -186,10 +178,7 @@ public abstract class AbstractCassandraProcessor extends AbstractProcessor {
         descriptors.add(CHARSET);
     }
 
-    protected final AtomicReference<Cluster> cluster = new AtomicReference<>(null);
-    protected final AtomicReference<Session> cassandraSession = new AtomicReference<>(null);
-
-    protected static final CodecRegistry codecRegistry = new CodecRegistry();
+    protected final AtomicReference<CassandraSession> cassandraSession = new AtomicReference<>(null);
 
     @Override
     protected Collection<ValidationResult> customValidate(ValidationContext validationContext) {
@@ -229,7 +218,6 @@ public abstract class AbstractCassandraProcessor extends AbstractProcessor {
 
         if (connectionProviderIsSet) {
             CassandraSessionProviderService sessionProvider = context.getProperty(CONNECTION_PROVIDER_SERVICE).asControllerService(CassandraSessionProviderService.class);
-            cluster.set(sessionProvider.getCluster());
             cassandraSession.set(sessionProvider.getCassandraSession());
             return;
         }
@@ -247,97 +235,53 @@ public abstract class AbstractCassandraProcessor extends AbstractProcessor {
     }
 
     void connectToCassandra(ProcessContext context) {
-        if (cluster.get() == null) {
-            ComponentLog log = getLogger();
-            final String contactPointList = context.getProperty(CONTACT_POINTS).evaluateAttributeExpressions().getValue();
-            final String consistencyLevel = context.getProperty(CONSISTENCY_LEVEL).getValue();
-            final String compressionType = context.getProperty(COMPRESSION_TYPE).getValue();
-            List<InetSocketAddress> contactPoints = getContactPoints(contactPointList);
+        ComponentLog log = getLogger();
+        final String contactPointList = context.getProperty(CONTACT_POINTS).evaluateAttributeExpressions().getValue();
+        final String consistencyLevel = context.getProperty(CONSISTENCY_LEVEL).getValue();
+        final String compressionType = context.getProperty(COMPRESSION_TYPE).getValue();
+        List<InetSocketAddress> contactPoints = getContactPoints(contactPointList);
 
-            // Set up the client for secure (SSL/TLS communications) if configured to do so
-            final SSLContextService sslService = context.getProperty(PROP_SSL_CONTEXT_SERVICE).asControllerService(SSLContextService.class);
-            final SSLContext sslContext;
+        // Set up the client for secure (SSL/TLS communications) if configured to do so
+        final SSLContextService sslService = context.getProperty(PROP_SSL_CONTEXT_SERVICE).asControllerService(SSLContextService.class);
+        final SSLContext sslContext;
 
-            if (sslService != null) {
-                sslContext = sslService.createContext();
-            } else {
-                sslContext = null;
-            }
-
-            final String username, password;
-            PropertyValue usernameProperty = context.getProperty(USERNAME).evaluateAttributeExpressions();
-            PropertyValue passwordProperty = context.getProperty(PASSWORD).evaluateAttributeExpressions();
-
-            if (usernameProperty != null && passwordProperty != null) {
-                username = usernameProperty.getValue();
-                password = passwordProperty.getValue();
-            } else {
-                username = null;
-                password = null;
-            }
-
-            // Create the cluster and connect to it
-            Cluster newCluster = createCluster(contactPoints, sslContext, username, password, compressionType);
-            PropertyValue keyspaceProperty = context.getProperty(KEYSPACE).evaluateAttributeExpressions();
-
-            final Session newSession;
-            // For Java 11, the getValue() call was added so the test could pass
-            if (keyspaceProperty != null && keyspaceProperty.getValue() != null) {
-                newSession = newCluster.connect(keyspaceProperty.getValue());
-            } else {
-                newSession = newCluster.connect();
-            }
-
-            newCluster.getConfiguration().getQueryOptions().setConsistencyLevel(ConsistencyLevel.valueOf(consistencyLevel));
-            Metadata metadata = newCluster.getMetadata();
-
-            log.info("Connected to Cassandra cluster: {}", new Object[]{metadata.getClusterName()});
-
-            cluster.set(newCluster);
-            cassandraSession.set(newSession);
-        }
-    }
-
-    protected void registerAdditionalCodecs() {
-        // Conversion between a String[] and a list of varchar
-        CodecRegistry.DEFAULT_INSTANCE.register(new ObjectArrayCodec<>(
-                DataType.list(DataType.varchar()),
-                String[].class,
-                TypeCodec.varchar()));
-    }
-
-    /**
-     * Uses a Cluster.Builder to create a Cassandra cluster reference using the given parameters
-     *
-     * @param contactPoints The contact points (hostname:port list of Cassandra nodes)
-     * @param sslContext    The SSL context (used for secure connections)
-     * @param username      The username for connection authentication
-     * @param password      The password for connection authentication
-     * @param compressionType Enable compression at transport-level requests and responses.
-     * @return A reference to the Cluster object associated with the given Cassandra configuration
-     */
-    protected Cluster createCluster(List<InetSocketAddress> contactPoints, SSLContext sslContext,
-                                    String username, String password, String compressionType) {
-        Cluster.Builder builder = Cluster.builder().addContactPointsWithPorts(contactPoints);
-        if (sslContext != null) {
-            final SSLOptions sslOptions = RemoteEndpointAwareJdkSSLOptions.builder()
-                    .withSSLContext(sslContext)
-                    .build();
-
-            builder = builder.withSSL(sslOptions);
-            if (ProtocolOptions.Compression.SNAPPY.name().equals(compressionType)) {
-                builder = builder.withCompression(ProtocolOptions.Compression.SNAPPY);
-            } else if (ProtocolOptions.Compression.LZ4.name().equals(compressionType)) {
-                builder = builder.withCompression(ProtocolOptions.Compression.LZ4);
-            }
+        if (sslService != null) {
+            sslContext = sslService.createContext();
+        } else {
+            sslContext = null;
         }
 
-        if (username != null && password != null) {
-            builder = builder.withCredentials(username, password);
+        final String username, password;
+        PropertyValue usernameProperty = context.getProperty(USERNAME).evaluateAttributeExpressions();
+        PropertyValue passwordProperty = context.getProperty(PASSWORD).evaluateAttributeExpressions();
+
+        if (usernameProperty != null && passwordProperty != null) {
+            username = usernameProperty.getValue();
+            password = passwordProperty.getValue();
+        } else {
+            username = null;
+            password = null;
         }
 
-        return builder.build();
+        // Create the cluster and connect to it
+        CassandraSession cassandraSession = createSession(contactPoints, sslContext, username, password, compressionType);
+        PropertyValue keyspaceProperty = context.getProperty(KEYSPACE).evaluateAttributeExpressions();
+
+        if (keyspaceProperty != null && keyspaceProperty.getValue() != null) {
+            newSession = cassandraSession.connect(keyspaceProperty.getValue());
+        } else {
+            newSession = cassandraSession.connect(null);
+        }
+
+        cassandraSession.setConsistencyLevel(consistencyLevel);
+
+        log.info("Connected to Cassandra cluster: {}", cassandraSession.getClusterName());
+
+        this.cassandraSession.set(newSession);
     }
+
+    protected abstract void registerAdditionalCodecs();
+
 
     public void stop(ProcessContext context) {
         // We don't want to close the connection when using 'Cassandra Connection Provider'
@@ -349,15 +293,11 @@ public abstract class AbstractCassandraProcessor extends AbstractProcessor {
                 cassandraSession.get().close();
                 cassandraSession.set(null);
             }
-            if (cluster.get() != null) {
-                cluster.get().close();
-                cluster.set(null);
-            }
         }
     }
 
 
-    protected static Object getCassandraObject(Row row, int i, DataType dataType) {
+    protected static Object getCassandraObject(CassandraRow row, int i, DataType dataType) {
         if (dataType.equals(DataType.blob())) {
             return row.getBytes(i);
 

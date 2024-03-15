@@ -16,20 +16,16 @@
  */
 package org.apache.nifi.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
 import org.apache.nifi.controller.ControllerService;
+
+import java.util.Optional;
 
 public interface CassandraSessionProviderService extends ControllerService {
     /**
      * Obtains a Cassandra session instance
-     * @return {@link Session}
+     * @return {@link CassandraSession}
      */
-    Session getCassandraSession();
+    CassandraSession getCassandraSession();
 
-    /**
-     * Obtains a Cassandra cluster instance
-     * @return {@link Cluster}
-     */
-    Cluster getCluster();
+    Optional<String> getClusterName();
 }

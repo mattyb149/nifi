@@ -16,19 +16,19 @@
  */
 package org.apache.nifi.service;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.ProtocolOptions;
-import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
-import com.datastax.driver.core.SSLOptions;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SocketOptions;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.net.ssl.SSLContext;
+
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.api.core.session.Session;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
@@ -44,21 +44,26 @@ import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.ssl.SSLContextService;
 
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_COMPRESSION;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_CONSISTENCY;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_SERIAL_CONSISTENCY;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TRACE_CONSISTENCY;
+
 @Tags({"cassandra", "dbcp", "database", "connection", "pooling"})
 @CapabilityDescription("Provides connection session for Cassandra processors to work with Apache Cassandra.")
-public class CassandraSessionProvider extends AbstractCassandraSessionProvider {
+public class Cassandra4SessionProvider extends AbstractCassandraSessionProvider {
 
     public static final PropertyDescriptor COMPRESSION_TYPE = new PropertyDescriptor.Builder()
             .name("Compression Type")
             .description("Enable compression at transport-level requests and responses")
             .required(false)
-            .allowableValues(ProtocolOptions.Compression.values())
+            .allowableValues("NONE", "LZ4", "SNAPPY")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .defaultValue("NONE")
             .build();
-
     private List<PropertyDescriptor> properties;
-    private Cluster cluster;
     private Session session;
     private CassandraSession cassandraSession;
 
@@ -91,23 +96,10 @@ public class CassandraSessionProvider extends AbstractCassandraSessionProvider {
     }
 
     @OnDisabled
-    public void onDisabled(){
+    public void onDisabled() {
         if (cassandraSession != null) {
             cassandraSession.close();
             cassandraSession = null;
-        }
-        if (cluster != null) {
-            cluster.close();
-            cluster = null;
-        }
-    }
-
-    @Override
-    public Optional<String> getClusterName() {
-        if (cluster != null) {
-            return Optional.ofNullable(cluster.getClusterName());
-        } else {
-            throw new ProcessException("Unable to get the Cassandra cluster detail.");
         }
     }
 
@@ -121,7 +113,7 @@ public class CassandraSessionProvider extends AbstractCassandraSessionProvider {
     }
 
     private void connectToCassandra(ConfigurationContext context) {
-        if (cluster == null) {
+        if (session == null) {
             ComponentLog log = getLogger();
             final String contactPointList = context.getProperty(CONTACT_POINTS).evaluateAttributeExpressions().getValue();
             final String consistencyLevel = context.getProperty(CONSISTENCY_LEVEL).getValue();
@@ -137,7 +129,7 @@ public class CassandraSessionProvider extends AbstractCassandraSessionProvider {
             if (sslService == null) {
                 sslContext = null;
             } else {
-                sslContext = sslService.createContext();;
+                sslContext = sslService.createContext();
             }
 
             final String username, password;
@@ -155,22 +147,13 @@ public class CassandraSessionProvider extends AbstractCassandraSessionProvider {
             final Integer readTimeoutMillis = context.getProperty(READ_TIMEOUT_MS).evaluateAttributeExpressions().asInteger();
             final Integer connectTimeoutMillis = context.getProperty(CONNECT_TIMEOUT_MS).evaluateAttributeExpressions().asInteger();
 
-            // Create the cluster and connect to it
-            Cluster newCluster = createCluster(contactPoints, sslContext, username, password, compressionType, readTimeoutMillis, connectTimeoutMillis);
+            // Connect to the cluster
             PropertyValue keyspaceProperty = context.getProperty(KEYSPACE).evaluateAttributeExpressions();
-            final Session newSession;
-            if (keyspaceProperty != null) {
-                newSession = newCluster.connect(keyspaceProperty.getValue());
-            } else {
-                newSession = newCluster.connect();
-            }
-            newCluster.getConfiguration().getQueryOptions().setConsistencyLevel(ConsistencyLevel.valueOf(consistencyLevel));
-            Metadata metadata = newCluster.getMetadata();
-            log.info("Connected to Cassandra cluster: {}", new Object[]{metadata.getClusterName()});
+            session = createSession(contactPoints, sslContext, username, password, compressionType, readTimeoutMillis,
+                    connectTimeoutMillis, consistencyLevel, keyspaceProperty.getValue());
 
-            cluster = newCluster;
-            session = newSession;
-            cassandraSession = new Cassandra3Session(session);
+            cassandraSession = new Cassandra4Session(session);
+            log.info("Connected to Cassandra cluster: {}", getClusterName());
         }
     }
 
@@ -194,43 +177,50 @@ public class CassandraSessionProvider extends AbstractCassandraSessionProvider {
         return contactPoints;
     }
 
-    private Cluster createCluster(final List<InetSocketAddress> contactPoints, final SSLContext sslContext,
+    private Session createSession(final List<InetSocketAddress> contactPoints, final SSLContext sslContext,
                                   final String username, final String password, final String compressionType,
-                                  final Integer readTimeoutMillis, final Integer connectTimeoutMillis) {
+                                  final Integer readTimeoutMillis, final Integer connectTimeoutMillis,
+                                  final String consistencyLevel, final String keyspaceName) {
 
-        Cluster.Builder builder = Cluster.builder().addContactPointsWithPorts(contactPoints);
+        ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder =
+                DriverConfigLoader.programmaticBuilder().withString(PROTOCOL_COMPRESSION, compressionType);
+        if (connectTimeoutMillis != null) {
+            driverConfigLoaderBuilder.withDuration(CONNECTION_CONNECT_TIMEOUT, Duration.ofMillis(connectTimeoutMillis));
+        }
+        if (readTimeoutMillis != null) {
+            driverConfigLoaderBuilder.withDuration(REQUEST_TIMEOUT, Duration.ofMillis(readTimeoutMillis));
+        }
+        if (consistencyLevel != null) {
+            driverConfigLoaderBuilder.withString(REQUEST_CONSISTENCY, consistencyLevel);
+            driverConfigLoaderBuilder.withString(REQUEST_SERIAL_CONSISTENCY, consistencyLevel);
+            driverConfigLoaderBuilder.withString(REQUEST_TRACE_CONSISTENCY, consistencyLevel);
+        }
+        CqlSessionBuilder builder = CqlSession.builder()
+                .withConfigLoader(driverConfigLoaderBuilder.build())
+                .addContactPoints(contactPoints)
+                .withKeyspace(keyspaceName);
         if (sslContext != null) {
-            final SSLOptions sslOptions = RemoteEndpointAwareJdkSSLOptions.builder()
-                    .withSSLContext(sslContext)
-                    .build();
-            builder = builder.withSSL(sslOptions);
+            builder = builder.withSslContext(sslContext);
         }
 
         if (username != null && password != null) {
-            builder = builder.withCredentials(username, password);
+            builder = builder.withAuthCredentials(username, password);
         }
-
-        if (ProtocolOptions.Compression.SNAPPY.name().equals(compressionType)) {
-            builder = builder.withCompression(ProtocolOptions.Compression.SNAPPY);
-        } else if (ProtocolOptions.Compression.LZ4.name().equals(compressionType)) {
-            builder = builder.withCompression(ProtocolOptions.Compression.LZ4);
-        }
-
-        SocketOptions socketOptions = new SocketOptions();
-        if (readTimeoutMillis != null) {
-            socketOptions.setReadTimeoutMillis(readTimeoutMillis);
-        }
-        if (connectTimeoutMillis != null) {
-            socketOptions.setConnectTimeoutMillis(connectTimeoutMillis);
-        }
-
-        builder.withSocketOptions(socketOptions);
 
         return builder.build();
     }
 
     @Override
-    protected Object[] getConsistencyLevelValues() {
-        return ConsistencyLevel.values();
+    public Optional<String> getClusterName() {
+        if (session != null) {
+            return session.getMetadata().getClusterName();
+        }
+        return Optional.empty();
     }
+
+    @Override
+    protected Object[] getConsistencyLevelValues() {
+        return DefaultConsistencyLevel.values();
+    }
+
 }

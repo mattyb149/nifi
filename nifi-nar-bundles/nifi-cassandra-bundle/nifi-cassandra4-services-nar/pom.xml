@@ -14,46 +14,43 @@
   limitations under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
     <parent>
-        <artifactId>nifi-standard-shared-bom</artifactId>
+        <artifactId>nifi-cassandra-bundle</artifactId>
         <groupId>org.apache.nifi</groupId>
         <version>2.0.0-SNAPSHOT</version>
-        <relativePath>../nifi-standard-shared-bundle/nifi-standard-shared-bom</relativePath>
     </parent>
+    <modelVersion>4.0.0</modelVersion>
 
-    <properties>
-        <cassandra.guava.version>19.0</cassandra.guava.version>
-    </properties>
-
-    <artifactId>nifi-cassandra-bundle</artifactId>
-    <packaging>pom</packaging>
-
-    <modules>
-        <module>nifi-cassandra-processors</module>
-        <module>nifi-cassandra-nar</module>
-        <module>nifi-cassandra-distributedmapcache-service</module>
-        <module>nifi-cassandra-services-api</module>
-        <module>nifi-cassandra-services-api-nar</module>
-        <module>nifi-cassandra-services</module>
-        <module>nifi-cassandra-services-nar</module>
-        <module>nifi-cassandra4-services</module>
-        <module>nifi-cassandra4-services-nar</module>
-    </modules>
+    <artifactId>nifi-cassandra4-services-nar</artifactId>
+    <packaging>nar</packaging>
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>org.apache.nifi</groupId>
-                <artifactId>nifi-cassandra-processors</artifactId>
-                <version>2.0.0-SNAPSHOT</version>
-            </dependency>
+            <!-- Provided in nifi-cassandra-services-api-nar -->
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>${cassandra.guava.version}</version>
+                <scope>provided</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-cassandra-services-api-nar</artifactId>
+            <version>2.0.0-SNAPSHOT</version>
+            <type>nar</type>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-cassandra4-services</artifactId>
+            <version>2.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-cassandra-distributedmapcache-service</artifactId>
+            <version>2.0.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 </project>
