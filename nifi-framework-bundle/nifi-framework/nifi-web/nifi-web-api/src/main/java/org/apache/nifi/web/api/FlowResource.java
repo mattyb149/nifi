@@ -2233,17 +2233,15 @@ public class FlowResource extends ApplicationResource {
     @Operation(
             summary = "Retrieves the Flow Registry Client Definition for the specified component type.",
             description = NON_GUARANTEED_ENDPOINT,
-            responses = @ApiResponse(content = @Content(schema = @Schema(implementation = FlowAnalysisRuleDefinition.class))),
-            security = {
-                    @SecurityRequirement(name = "Read - /flow")
-            }
-    )
-    @ApiResponses(
-            value = {
+            responses = {
+                    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = FlowAnalysisRuleDefinition.class))),
                     @ApiResponse(responseCode = "400", description = "NiFi was unable to complete the request because it was invalid. The request should not be retried without modification."),
                     @ApiResponse(responseCode = "401", description = "Client could not be authenticated."),
                     @ApiResponse(responseCode = "403", description = "Client is not authorized to make this request."),
                     @ApiResponse(responseCode = "404", description = "The flow registry client definition for the coordinates could not be located.")
+            },
+            security = {
+                    @SecurityRequirement(name = "Read - /flow")
             }
     )
     public Response getFlowRegistryClientDefinition(
