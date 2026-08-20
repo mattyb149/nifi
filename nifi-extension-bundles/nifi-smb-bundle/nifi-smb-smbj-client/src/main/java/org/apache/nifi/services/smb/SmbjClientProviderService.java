@@ -16,12 +16,6 @@
  */
 package org.apache.nifi.services.smb;
 
-import com.hierynomus.smbj.SMBClient;
-import com.hierynomus.smbj.auth.AuthenticationContext;
-import com.hierynomus.smbj.connection.Connection;
-import com.hierynomus.smbj.session.Session;
-import com.hierynomus.smbj.share.DiskShare;
-import com.hierynomus.smbj.share.Share;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
@@ -29,76 +23,50 @@ import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.controller.ConfigurationContext;
+import org.apache.nifi.kerberos.KerberosUserService;
+import org.apache.nifi.kerberos.SelfContainedKerberosUserService;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.migration.PropertyConfiguration;
+import org.apache.nifi.security.krb.KerberosAction;
+import org.apache.nifi.security.krb.KerberosUser;
 
 import java.io.IOException;
 import java.net.URI;
+import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
-import static org.apache.nifi.processor.util.StandardValidators.NON_BLANK_VALIDATOR;
-import static org.apache.nifi.processor.util.StandardValidators.NON_EMPTY_VALIDATOR;
-import static org.apache.nifi.processor.util.StandardValidators.PORT_VALIDATOR;
+import static org.apache.nifi.smb.common.SmbProperties.DOMAIN;
 import static org.apache.nifi.smb.common.SmbProperties.ENABLE_DFS;
+import static org.apache.nifi.smb.common.SmbProperties.HOSTNAME;
+import static org.apache.nifi.smb.common.SmbProperties.OLD_DOMAIN_PROPERTY_NAME;
 import static org.apache.nifi.smb.common.SmbProperties.OLD_ENABLE_DFS_PROPERTY_NAME;
+import static org.apache.nifi.smb.common.SmbProperties.OLD_HOSTNAME_PROPERTY_NAME;
+import static org.apache.nifi.smb.common.SmbProperties.OLD_PASSWORD_PROPERTY_NAME;
+import static org.apache.nifi.smb.common.SmbProperties.OLD_PORT_PROPERTY_NAME;
+import static org.apache.nifi.smb.common.SmbProperties.OLD_SHARE_PROPERTY_NAME;
 import static org.apache.nifi.smb.common.SmbProperties.OLD_SMB_DIALECT_PROPERTY_NAME;
 import static org.apache.nifi.smb.common.SmbProperties.OLD_TIMEOUT_PROPERTY_NAME;
+import static org.apache.nifi.smb.common.SmbProperties.OLD_USERNAME_PROPERTY_NAME;
 import static org.apache.nifi.smb.common.SmbProperties.OLD_USE_ENCRYPTION_PROPERTY_NAME;
+import static org.apache.nifi.smb.common.SmbProperties.PASSWORD;
+import static org.apache.nifi.smb.common.SmbProperties.PORT;
+import static org.apache.nifi.smb.common.SmbProperties.SHARE;
 import static org.apache.nifi.smb.common.SmbProperties.SMB_DIALECT;
 import static org.apache.nifi.smb.common.SmbProperties.TIMEOUT;
+import static org.apache.nifi.smb.common.SmbProperties.USERNAME;
 import static org.apache.nifi.smb.common.SmbProperties.USE_ENCRYPTION;
-import static org.apache.nifi.smb.common.SmbUtils.buildSmbClient;
 
-@Tags({"samba, smb, cifs, files"})
+@Tags({"samba, smb, cifs, files, kerberos"})
 @CapabilityDescription("Provides access to SMB Sessions with shared authentication credentials.")
 public class SmbjClientProviderService extends AbstractControllerService implements SmbClientProviderService {
 
-    public static final PropertyDescriptor HOSTNAME = new PropertyDescriptor.Builder()
-            .name("Hostname")
-            .description("The network host of the SMB file server.")
+    static PropertyDescriptor SELF_CONTAINED_KERBEROS_USER_SERVICE = new PropertyDescriptor.Builder()
+            .name("kerberos-user-service")
+            .displayName("Kerberos User Service")
+            .description("Service supporting user authentication with Kerberos")
+            .identifiesControllerService(SelfContainedKerberosUserService.class)
             .required(true)
-            .addValidator(NON_BLANK_VALIDATOR)
-            .build();
-
-    public static final PropertyDescriptor DOMAIN = new PropertyDescriptor.Builder()
-            .name("Domain")
-            .description(
-                    "The domain used for authentication. Optional, in most cases username and password is sufficient.")
-            .required(false)
-            .addValidator(NON_EMPTY_VALIDATOR)
-            .build();
-
-    public static final PropertyDescriptor USERNAME = new PropertyDescriptor.Builder()
-            .name("Username")
-            .description(
-                    "The username used for authentication.")
-            .required(false)
-            .defaultValue("Guest")
-            .addValidator(NON_EMPTY_VALIDATOR)
-            .build();
-
-    public static final PropertyDescriptor PASSWORD = new PropertyDescriptor.Builder()
-            .name("Password")
-            .description("The password used for authentication.")
-            .required(false)
-            .addValidator(NON_EMPTY_VALIDATOR)
-            .sensitive(true)
-            .build();
-
-    public static final PropertyDescriptor PORT = new PropertyDescriptor.Builder()
-            .name("Port")
-            .description("Port to use for connection.")
-            .required(true)
-            .addValidator(PORT_VALIDATOR)
-            .defaultValue("445")
-            .build();
-
-    public static final PropertyDescriptor SHARE = new PropertyDescriptor.Builder()
-            .name("Share")
-            .description("The network share to which files should be listed from. This is the \"first folder\"" +
-                    "after the hostname: smb://hostname:port/[share]/dir1/dir2")
-            .required(true)
-            .addValidator(NON_BLANK_VALIDATOR)
             .build();
 
     private static final List<PropertyDescriptor> PROPERTY_DESCRIPTORS = List.of(
@@ -107,6 +75,7 @@ public class SmbjClientProviderService extends AbstractControllerService impleme
             SHARE,
             USERNAME,
             PASSWORD,
+            SELF_CONTAINED_KERBEROS_USER_SERVICE,
             DOMAIN,
             SMB_DIALECT,
             USE_ENCRYPTION,
@@ -114,11 +83,8 @@ public class SmbjClientProviderService extends AbstractControllerService impleme
             TIMEOUT
     );
 
-    private SMBClient smbClient;
-    private AuthenticationContext authenticationContext;
-    private String hostname;
-    private int port;
-    private String shareName;
+    private SmbjClientProvider delegate;
+    private KerberosUser kerberosUser;
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -127,90 +93,65 @@ public class SmbjClientProviderService extends AbstractControllerService impleme
 
     @OnEnabled
     public void onEnabled(final ConfigurationContext context) {
-        this.hostname = context.getProperty(HOSTNAME).getValue();
-        this.port = context.getProperty(PORT).asInteger();
-        this.shareName = context.getProperty(SHARE).getValue();
-        this.smbClient = buildSmbClient(context);
-        createAuthenticationContext(context);
+        kerberosUser = getKerberosUser(context);
+        delegate = new SmbjClientProvider(context, getLogger());
     }
 
     @OnDisabled
     public void onDisabled() {
-        smbClient.close();
-        smbClient = null;
-        hostname = null;
-        port = 0;
-        shareName = null;
+        if (delegate != null) {
+            try {
+                delegate.close();
+            } catch (Exception e) {
+                getLogger().error("Error while closing SMB ClientProvider", e);
+            } finally {
+                delegate = null;
+            }
+        }
     }
 
     @Override
-    public URI getServiceLocation() {
-        return URI.create(String.format("smb://%s:%d/%s", hostname, port, shareName));
+    public URI getServiceLocation(final Map<String, String> attributes) {
+        return delegate.getServiceLocation(attributes);
     }
 
     @Override
-    public SmbClientService getClient(final ComponentLog logger) throws IOException {
-        final Connection connection = smbClient.connect(hostname, port);
-
-        final Session session;
-        final Share share;
-
-        try {
-            session = connection.authenticate(authenticationContext);
-        } catch (Exception e) {
-            throw new IOException("Could not create session for share " + getServiceLocation(), e);
+    public SmbClientService getClient(final ComponentLog logger, final Map<String, String> attributes) throws IOException {
+        if (kerberosUser != null) {
+            KerberosAction<SmbClientService> kerberosAction = new KerberosAction<>(kerberosUser,
+                    () -> delegate.getClient(logger, attributes),
+                    getLogger());
+            return kerberosAction.execute();
+        } else {
+            return delegate.getClient(logger, attributes);
         }
-
-        try {
-            share = session.connectShare(shareName);
-        } catch (Exception e) {
-            closeSession(session);
-            throw new IOException("Could not connect to share " + getServiceLocation(), e);
-        }
-
-        if (!(share instanceof DiskShare)) {
-            closeSession(session);
-            throw new IllegalArgumentException("DiskShare not found. Share " + share.getClass().getSimpleName() + " found on " + getServiceLocation());
-        }
-
-        return new SmbjClientService(session, (DiskShare) share, getServiceLocation(), logger);
     }
 
     @Override
     public void migrateProperties(PropertyConfiguration config) {
-        config.renameProperty("hostname", HOSTNAME.getName());
-        config.renameProperty("domain", DOMAIN.getName());
-        config.renameProperty("username", USERNAME.getName());
-        config.renameProperty("password", PASSWORD.getName());
-        config.renameProperty("port", PORT.getName());
-        config.renameProperty("share", SHARE.getName());
+        config.renameProperty(OLD_HOSTNAME_PROPERTY_NAME, HOSTNAME.getName());
+        config.renameProperty(OLD_DOMAIN_PROPERTY_NAME, DOMAIN.getName());
+        config.renameProperty(OLD_USERNAME_PROPERTY_NAME, USERNAME.getName());
+        config.renameProperty(OLD_PASSWORD_PROPERTY_NAME, PASSWORD.getName());
+        config.renameProperty(OLD_PORT_PROPERTY_NAME, PORT.getName());
+        config.renameProperty(OLD_SHARE_PROPERTY_NAME, SHARE.getName());
         config.renameProperty(OLD_ENABLE_DFS_PROPERTY_NAME, ENABLE_DFS.getName());
         config.renameProperty(OLD_SMB_DIALECT_PROPERTY_NAME, SMB_DIALECT.getName());
         config.renameProperty(OLD_TIMEOUT_PROPERTY_NAME, TIMEOUT.getName());
         config.renameProperty(OLD_USE_ENCRYPTION_PROPERTY_NAME, USE_ENCRYPTION.getName());
     }
 
-    private void closeSession(final Session session) {
-        try {
-            if (session != null) {
-                session.close();
-            }
-        } catch (Exception e) {
-            getLogger().error("Could not close session to {}", getServiceLocation(), e);
-        }
-    }
+    protected KerberosUser getKerberosUser(final ConfigurationContext context) {
 
-    private void createAuthenticationContext(final ConfigurationContext context) {
-        if (context.getProperty(USERNAME).isSet()) {
-            final String userName = context.getProperty(USERNAME).getValue();
-            final String password =
-                    context.getProperty(PASSWORD).isSet() ? context.getProperty(PASSWORD).getValue() : "";
-            final String domainOrNull =
-                    context.getProperty(DOMAIN).isSet() ? context.getProperty(DOMAIN).getValue() : null;
-            authenticationContext = new AuthenticationContext(userName, password.toCharArray(), domainOrNull);
+        final KerberosUserService kerberosUserService = context.getProperty(SELF_CONTAINED_KERBEROS_USER_SERVICE)
+                .asControllerService(SelfContainedKerberosUserService.class);
+
+        if (kerberosUserService == null) {
+            kerberosUser = null;
         } else {
-            authenticationContext = AuthenticationContext.anonymous();
+            kerberosUser = kerberosUserService.createKerberosUser();
         }
-    }
 
+        return kerberosUser;
+    }
 }
